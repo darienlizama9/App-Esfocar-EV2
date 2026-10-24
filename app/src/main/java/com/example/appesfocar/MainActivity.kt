@@ -3,45 +3,25 @@ package com.example.appesfocar
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import com.example.appesfocar.ui.theme.AppEsfocarTheme
+import com.example.appesfocar.ui.vistas.VistaLogin
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+
         setContent {
             AppEsfocarTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                // Aquí le decimos a la app que inicie directamente en nuestra VistaLogin
+                VistaLogin(
+                    onIngresar = {
+                        // Más adelante programaremos aquí la conexión a la base de datos
+                    },
+                    onRegistrar = {
+                        // Más adelante haremos que esto te lleve a la pantalla de Registro
+                    }
+                )
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    AppEsfocarTheme {
-        Greeting("Android")
     }
 }
