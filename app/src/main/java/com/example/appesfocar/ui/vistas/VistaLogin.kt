@@ -1,13 +1,15 @@
 package com.example.appesfocar.ui.vistas
-
+import androidx.compose.ui.res.painterResource
+import com.example.appesfocar.R
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
@@ -29,15 +31,13 @@ fun VistaLogin(onIngresar: () -> Unit, onRegistrar: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Círculo simulando el logo de la Institución
-        Box(
-            modifier = Modifier
-                .size(120.dp)
-                .background(VerdeInstitucional, shape = CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("ESFOCAR", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-        }
+        Image(
+            painter = painterResource(id = R.drawable.logo_esfocar),
+            contentDescription = "Logo oficial ESFOCAR",
+            modifier = Modifier.fillMaxWidth(0.8f),
+            contentScale = ContentScale.Fit
+
+        )
 
         Spacer(modifier = Modifier.height(32.dp))
 
