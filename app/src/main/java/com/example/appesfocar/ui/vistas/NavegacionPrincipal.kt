@@ -67,15 +67,6 @@ fun NavegacionPrincipal() {
         }
     }
 }
-
-@Composable
-fun VistaRubricas() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Pantalla de Rúbricas en construcción")
-    }
-}
-
-
 @Composable
 fun VistaPerfil() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
