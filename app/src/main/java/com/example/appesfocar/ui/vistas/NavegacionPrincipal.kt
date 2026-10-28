@@ -80,7 +80,7 @@ fun NavegacionPrincipal() {
             // Flujo de Acceso
             composable("bienvenida") {
                 VistaBienvenida(
-                    onComenzar = { navController.navigate("login") }
+                    onTimeout = { navController.navigate("login") }
                 )
             }
 
@@ -124,7 +124,7 @@ fun NavegacionPrincipal() {
 
             // Flujo Interno (Con Barra Inferior)
             composable("ruta_rubricas") { VistaRubricas() }
-            composable("ruta_documentos") { VistaDocumento() }
+            composable("ruta_documentos") { VistaDocumentos() }
             composable("ruta_perfil") { VistaPerfil() }
         }
     }

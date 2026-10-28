@@ -34,10 +34,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.appesfocar.data.EsfocarDatabase
 import com.example.appesfocar.data.Usuario
+import com.example.appesfocar.ui.theme.AppEsfocarTheme
 import com.example.appesfocar.ui.theme.VerdeInstitucional
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -160,5 +162,13 @@ fun VistaAdmin(
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun PreviewVistaAdmin() {
+    AppEsfocarTheme {
+        VistaAdmin(onCerrarSesion = {})
     }
 }
