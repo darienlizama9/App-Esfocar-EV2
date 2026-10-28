@@ -5,16 +5,15 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-// Aquí le decimos a Room qué tablas incluir y qué versión es (muy importante)
-@Database(entities = [Usuario::class, Rubrica::class], version = 1, exportSchema = false)
+// Subimos la versión a 2 para reflejar los nuevos campos de Usuario (rol, cuentaActiva, fechaNacimiento, etc.)
+@Database(entities = [Usuario::class, Rubrica::class], version = 2, exportSchema = false)
 abstract class EsfocarDatabase : RoomDatabase() {
 
-    // Conectamos los DAOs que creaste antes
+    // Conectamos los DAOs del proyecto
     abstract fun usuarioDao(): UsuarioDao
     abstract fun rubricaDao(): RubricaDao
 
-    // Este bloque 'companion object' asegura que solo exista UNA instancia de la base de datos
-    // en toda la aplicación, ahorrando memoria y evitando crasheos.
+    // Instancia ÚNICA (Singleton) para toda la aplicación
     companion object {
         @Volatile
         private var INSTANCE: EsfocarDatabase? = null
@@ -24,9 +23,8 @@ abstract class EsfocarDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     EsfocarDatabase::class.java,
-                    "esfocar_database" // El nombre del archivo SQLite en el celular
+                    "esfocar_database"
                 )
-                    // Esto destruye y recrea la BD si cambias las tablas y subes la versión
                     .fallbackToDestructiveMigration()
                     .build()
 
