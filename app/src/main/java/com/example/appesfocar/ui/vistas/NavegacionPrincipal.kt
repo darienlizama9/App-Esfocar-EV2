@@ -75,12 +75,6 @@ fun VistaRubricas() {
     }
 }
 
-@Composable
-fun VistaDocumentos() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Pantalla de Documentos en construcción")
-    }
-}
 
 @Composable
 fun VistaPerfil() {
