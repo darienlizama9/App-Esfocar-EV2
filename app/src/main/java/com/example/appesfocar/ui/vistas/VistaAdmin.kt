@@ -2,6 +2,7 @@ package com.example.appesfocar.ui.vistas
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,14 +11,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -125,10 +129,10 @@ fun VistaAdmin(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Opción 1: Inicio
+                // Opción 1: Inicio / Dashboard
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.Home, contentDescription = null) },
-                    label = { Text("Inicio") },
+                    label = { Text("Inicio / Dashboard") },
                     selected = seccionActual == "inicio",
                     onClick = {
                         seccionActual = "inicio"
@@ -183,7 +187,7 @@ fun VistaAdmin(
                     title = {
                         Text(
                             when (seccionActual) {
-                                "inicio" -> "Inicio Administrador"
+                                "inicio" -> "Dashboard Administrador"
                                 "reportes" -> "Generar Reportes"
                                 else -> "Aprobación de Docentes"
                             },
@@ -219,22 +223,82 @@ fun VistaAdmin(
             ) {
                 when (seccionActual) {
                     "inicio" -> {
+                        // DASHBOARD PRINCIPAL DE INICIO
                         Column(
                             modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             Text(
-                                text = "Bienvenido Administrador", // Saludo corregido
+                                text = "Resumen del Sistema",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = VerdeInstitucional
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Usa el menú lateral para navegar por las opciones del sistema.",
-                                color = Color.Gray
-                            )
+
+                            // Tarjetas Métricas e Interactivas de Acceso Rápido
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Card(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { seccionActual = "pendientes" },
+                                    colors = CardDefaults.cardColors(containerColor = VerdeInstitucional.copy(alpha = 0.1f)),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(16.dp),
+                                        horizontalAlignment = Alignment.Start
+                                    ) {
+                                        Icon(
+                                            Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = VerdeInstitucional,
+                                            modifier = Modifier.size(32.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text("Solicitudes Pendientes", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        Text("${listaPendientes.size} docentes", fontSize = 18.sp, color = VerdeInstitucional, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+
+                                Card(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { seccionActual = "reportes" },
+                                    colors = CardDefaults.cardColors(containerColor = VerdeInstitucional.copy(alpha = 0.1f)),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(16.dp),
+                                        horizontalAlignment = Alignment.Start
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Assessment,
+                                            contentDescription = null,
+                                            tint = VerdeInstitucional,
+                                            modifier = Modifier.size(32.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text("Módulo Reportes", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        Text("Generar PDF", fontSize = 16.sp, color = VerdeInstitucional, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+
+                            // Tarjeta Informativa de Estado
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text("Estado del Sistema ESFOCAR", fontWeight = FontWeight.Bold, color = VerdeInstitucional)
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text("• Base de datos Room activa y lista para sincronización.", fontSize = 13.sp)
+                                    Text("• Control de acceso por roles (Administrador / Instructor).", fontSize = 13.sp)
+                                }
+                            }
                         }
                     }
 
@@ -369,9 +433,6 @@ fun VistaAdmin(
                                                     if (usuariosPreview == null) {
                                                         val db = EsfocarDatabase.getDatabase(context)
                                                         coroutineScope.launch(Dispatchers.IO) {
-                                                            // Si tienes un método DAO para eliminar, puedes usarlo,
-                                                            // o actualizar el usuario a un estado eliminado / borrar de la BD.
-                                                            // Aquí simulamos eliminándolo de la lista visual o ejecutando el DAO si existe.
                                                             db.usuarioDao().eliminarUsuario(usuario)
                                                             withContext(Dispatchers.Main) {
                                                                 Toast.makeText(context, "Solicitud rechazada y eliminada", Toast.LENGTH_SHORT).show()
@@ -384,7 +445,7 @@ fun VistaAdmin(
                                                     }
                                                 },
                                                 modifier = Modifier.fillMaxWidth(),
-                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)) // Rojo intenso
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828))
                                             ) {
                                                 Text("Rechazar Solicitud", color = Color.White, fontWeight = FontWeight.Bold)
                                             }
