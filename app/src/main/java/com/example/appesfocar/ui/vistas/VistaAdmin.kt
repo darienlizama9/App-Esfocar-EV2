@@ -18,10 +18,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Grade
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -75,32 +76,35 @@ fun VistaAdmin(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    // Control del Menú Lateral (Drawer)
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-
-    // Estado para controlar en qué pantalla/sección estamos
     var seccionActual by remember { mutableStateOf("inicio") }
 
     var listaPendientes by remember { mutableStateOf(usuariosPreview ?: emptyList()) }
+    var listaActivos by remember { mutableStateOf<List<Usuario>>(emptyList()) }
 
-    // Diálogos emergentes
     var usuarioAEditar by remember { mutableStateOf<Usuario?>(null) }
     var usuarioAVerDocumentos by remember { mutableStateOf<Usuario?>(null) }
+    var reporteGenerado by remember { mutableStateOf(false) }
+
+    var notaEjemplo by remember { mutableStateOf("2.75") }
+    var editarNotaModal by remember { mutableStateOf(false) }
 
     if (usuariosPreview == null) {
         val db = remember { EsfocarDatabase.getDatabase(context) }
 
-        fun cargarPendientes() {
+        fun cargarDatos() {
             coroutineScope.launch(Dispatchers.IO) {
                 val pendientes = db.usuarioDao().obtenerUsuariosPendientes()
+                val todos = db.usuarioDao().obtenerTodosLosUsuarios()
                 withContext(Dispatchers.Main) {
                     listaPendientes = pendientes
+                    listaActivos = todos.filter { it.cuentaActiva }
                 }
             }
         }
 
         LaunchedEffect(Unit) {
-            cargarPendientes()
+            cargarDatos()
         }
     }
 
@@ -114,68 +118,59 @@ fun VistaAdmin(
                         .background(VerdeInstitucional)
                         .padding(24.dp)
                 ) {
-                    Text(
-                        text = "Panel de Administración",
-                        color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "ESFOCAR - Sistema Evaluativo",
-                        color = Color.White.copy(alpha = 0.8f),
-                        fontSize = 14.sp
-                    )
+                    Text(text = "Panel Administrador", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(text = "ESFOCAR - Sistema Evaluativo", color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Opción 1: Inicio / Dashboard
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.Home, contentDescription = null) },
                     label = { Text("Inicio / Dashboard") },
                     selected = seccionActual == "inicio",
-                    onClick = {
-                        seccionActual = "inicio"
-                        coroutineScope.launch { drawerState.close() }
-                    },
+                    onClick = { seccionActual = "inicio"; coroutineScope.launch { drawerState.close() } },
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
 
-                // Opción 2: Aprobar Docentes
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.CheckCircle, contentDescription = null) },
-                    label = { Text("Aprobar Docentes (${listaPendientes.size})") },
+                    label = { Text("Solicitudes Pendientes (${listaPendientes.size})") },
                     selected = seccionActual == "pendientes",
-                    onClick = {
-                        seccionActual = "pendientes"
-                        coroutineScope.launch { drawerState.close() }
-                    },
+                    onClick = { seccionActual = "pendientes"; coroutineScope.launch { drawerState.close() } },
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
 
-                // Opción 3: Generar Reporte
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.People, contentDescription = null) },
+                    label = { Text("Docentes Registrados (${listaActivos.size})") },
+                    selected = seccionActual == "activos",
+                    onClick = { seccionActual = "activos"; coroutineScope.launch { drawerState.close() } },
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.Grade, contentDescription = null) },
+                    label = { Text("Historial de Notas") },
+                    selected = seccionActual == "notas",
+                    onClick = { seccionActual = "notas"; coroutineScope.launch { drawerState.close() } },
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.List, contentDescription = null) },
                     label = { Text("Generar Reporte") },
                     selected = seccionActual == "reportes",
-                    onClick = {
-                        seccionActual = "reportes"
-                        coroutineScope.launch { drawerState.close() }
-                    },
+                    onClick = { seccionActual = "reportes"; coroutineScope.launch { drawerState.close() } },
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // Opción 4: Cerrar Sesión
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = Color.Red) },
                     label = { Text("Cerrar Sesión", color = Color.Red) },
                     selected = false,
-                    onClick = {
-                        coroutineScope.launch { drawerState.close() }
-                        onCerrarSesion()
-                    },
+                    onClick = { coroutineScope.launch { drawerState.close() }; onCerrarSesion() },
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp)
                 )
             }
@@ -188,29 +183,21 @@ fun VistaAdmin(
                         Text(
                             when (seccionActual) {
                                 "inicio" -> "Dashboard Administrador"
+                                "activos" -> "Docentes y Carabineros Activos"
+                                "notas" -> "Gestión de Notas y Rúbricas"
                                 "reportes" -> "Generar Reportes"
-                                else -> "Aprobación de Docentes"
+                                else -> "Aprobación de Solicitudes"
                             },
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
                     },
                     navigationIcon = {
-                        IconButton(
-                            onClick = {
-                                coroutineScope.launch { drawerState.open() }
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Menu,
-                                contentDescription = "Menú",
-                                tint = Color.White
-                            )
+                        IconButton(onClick = { coroutineScope.launch { drawerState.open() } }) {
+                            Icon(Icons.Default.Menu, contentDescription = "Menú", tint = Color.White)
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = VerdeInstitucional
-                    )
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = VerdeInstitucional)
                 )
             }
         ) { paddingValues ->
@@ -223,112 +210,122 @@ fun VistaAdmin(
             ) {
                 when (seccionActual) {
                     "inicio" -> {
-                        // DASHBOARD PRINCIPAL DE INICIO
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            Text(
-                                text = "Resumen del Sistema",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = VerdeInstitucional
-                            )
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Text("Resumen General del Sistema", style = MaterialTheme.typography.titleMedium, color = VerdeInstitucional, fontWeight = FontWeight.Bold)
 
-                            // Tarjetas Métricas e Interactivas de Acceso Rápido
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Card(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { seccionActual = "pendientes" },
-                                    colors = CardDefaults.cardColors(containerColor = VerdeInstitucional.copy(alpha = 0.1f)),
-                                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                    modifier = Modifier.weight(1f).clickable { seccionActual = "pendientes" },
+                                    colors = CardDefaults.cardColors(containerColor = VerdeInstitucional.copy(alpha = 0.1f))
                                 ) {
-                                    Column(
-                                        modifier = Modifier.padding(16.dp),
-                                        horizontalAlignment = Alignment.Start
-                                    ) {
-                                        Icon(
-                                            Icons.Default.CheckCircle,
-                                            contentDescription = null,
-                                            tint = VerdeInstitucional,
-                                            modifier = Modifier.size(32.dp)
-                                        )
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text("Solicitudes Pendientes", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                        Text("${listaPendientes.size} docentes", fontSize = 18.sp, color = VerdeInstitucional, fontWeight = FontWeight.Bold)
+                                    Column(modifier = Modifier.padding(16.dp)) {
+                                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = VerdeInstitucional, modifier = Modifier.size(28.dp))
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text("Pendientes", fontWeight = FontWeight.Bold)
+                                        Text("${listaPendientes.size} solicitudes", fontSize = 16.sp, color = VerdeInstitucional, fontWeight = FontWeight.Bold)
                                     }
                                 }
 
                                 Card(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { seccionActual = "reportes" },
-                                    colors = CardDefaults.cardColors(containerColor = VerdeInstitucional.copy(alpha = 0.1f)),
-                                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                    modifier = Modifier.weight(1f).clickable { seccionActual = "activos" },
+                                    colors = CardDefaults.cardColors(containerColor = VerdeInstitucional.copy(alpha = 0.1f))
                                 ) {
-                                    Column(
-                                        modifier = Modifier.padding(16.dp),
-                                        horizontalAlignment = Alignment.Start
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Assessment,
-                                            contentDescription = null,
-                                            tint = VerdeInstitucional,
-                                            modifier = Modifier.size(32.dp)
-                                        )
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text("Módulo Reportes", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                        Text("Generar PDF", fontSize = 16.sp, color = VerdeInstitucional, fontWeight = FontWeight.Bold)
+                                    Column(modifier = Modifier.padding(16.dp)) {
+                                        Icon(Icons.Default.People, contentDescription = null, tint = VerdeInstitucional, modifier = Modifier.size(28.dp))
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text("Docentes Activos", fontWeight = FontWeight.Bold)
+                                        Text("${listaActivos.size} usuarios", fontSize = 16.sp, color = VerdeInstitucional, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
+                        }
+                    }
 
-                            // Tarjeta Informativa de Estado
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                            ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Text("Estado del Sistema ESFOCAR", fontWeight = FontWeight.Bold, color = VerdeInstitucional)
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Text("• Base de datos Room activa y lista para sincronización.", fontSize = 13.sp)
-                                    Text("• Control de acceso por roles (Administrador / Instructor).", fontSize = 13.sp)
+                    "activos" -> {
+                        Text("Docentes y Carabineros Activos (${listaActivos.size})", style = MaterialTheme.typography.titleMedium, color = VerdeInstitucional, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
+
+                        if (listaActivos.isEmpty()) {
+                            Text("No hay usuarios activos registrados aún", color = Color.Gray)
+                        } else {
+                            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                items(listaActivos) { usuario ->
+                                    Card(modifier = Modifier.fillMaxWidth()) {
+                                        Column(modifier = Modifier.padding(16.dp)) {
+                                            Text("${usuario.nombre} ${usuario.apellido}", fontWeight = FontWeight.Bold, color = VerdeInstitucional)
+                                            Text("Correo: ${usuario.correo}", fontSize = 14.sp)
+                                            Text("Rol actual: ${usuario.rol}", fontSize = 14.sp)
+
+                                            Spacer(modifier = Modifier.height(8.dp))
+
+                                            OutlinedButton(
+                                                onClick = { usuarioAEditar = usuario },
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Text("Editar Información y Rol")
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
 
                     "reportes" -> {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.Top
-                        ) {
-                            Text(
-                                text = "Módulo de Generación de Reportes",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = VerdeInstitucional,
-                                modifier = Modifier.padding(bottom = 16.dp)
-                            )
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                            ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Text("Módulo de Reportes PDF", style = MaterialTheme.typography.titleMedium, color = VerdeInstitucional, fontWeight = FontWeight.Bold)
+
+                            Card(modifier = Modifier.fillMaxWidth()) {
                                 Column(modifier = Modifier.padding(16.dp)) {
-                                    Text("Reporte General de Docentes", fontWeight = FontWeight.Bold)
-                                    Text("Genera un resumen en PDF con los usuarios registrados y su estado actual.", fontSize = 14.sp)
+                                    Text("Reporte Consolidado de Calificaciones", fontWeight = FontWeight.Bold)
+                                    Text("Genera y visualiza la vista previa oficial del informe general.", fontSize = 14.sp)
+
                                     Spacer(modifier = Modifier.height(12.dp))
+
                                     Button(
-                                        onClick = {
-                                            Toast.makeText(context, "Generando reporte...", Toast.LENGTH_SHORT).show()
-                                        },
+                                        onClick = { reporteGenerado = true },
                                         colors = ButtonDefaults.buttonColors(containerColor = VerdeInstitucional)
                                     ) {
-                                        Text("Descargar Reporte PDF")
+                                        Text("Generar y Visualizar Reporte")
+                                    }
+                                }
+                            }
+
+                            if (reporteGenerado) {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F8E9))
+                                ) {
+                                    Column(modifier = Modifier.padding(16.dp)) {
+                                        Text("📄 PREVISUALIZACIÓN DEL REPORTE", fontWeight = FontWeight.Bold, color = VerdeInstitucional)
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text("Escuela de Formación de Carabineros - ESFOCAR")
+                                        Text("• Total Docentes Registrados: ${listaActivos.size}")
+                                        Text("• Solicitudes Pendientes: ${listaPendientes.size}")
+                                        Text("• Estado Base de Datos: Sincronizada OK")
+                                        Text("• Sello de Validación: [Aprobado por Administración]")
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    "notas" -> {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text("Registro y Edición de Rúbricas / Notas", style = MaterialTheme.typography.titleMedium, color = VerdeInstitucional, fontWeight = FontWeight.Bold)
+
+                            Card(modifier = Modifier.fillMaxWidth()) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text("Evaluación General - Rúbrica Institucional", fontWeight = FontWeight.Bold)
+                                    Text("Calificación Actual Registrada: $notaEjemplo", fontSize = 16.sp, color = if ((notaEjemplo.toFloatOrNull() ?: 0f) >= 4.0) VerdeInstitucional else Color.Red, fontWeight = FontWeight.Bold)
+                                    Text("Estado: ${if ((notaEjemplo.toFloatOrNull() ?: 0f) >= 4.0) "APROBADO" else "REPROBADO"}")
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    Button(
+                                        onClick = { editarNotaModal = true },
+                                        colors = ButtonDefaults.buttonColors(containerColor = VerdeInstitucional)
+                                    ) {
+                                        Text("Editar Nota de Docente")
                                     }
                                 }
                             }
@@ -336,72 +333,32 @@ fun VistaAdmin(
                     }
 
                     "pendientes" -> {
-                        Text(
-                            text = "Docentes Pendientes de Aprobación (${listaPendientes.size})",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = VerdeInstitucional,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        )
+                        Text("Docentes Pendientes de Aprobación (${listaPendientes.size})", style = MaterialTheme.typography.titleMedium, color = VerdeInstitucional, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
 
                         if (listaPendientes.isEmpty()) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Text("No hay solicitudes pendientes en este momento", color = Color.Gray)
-                            }
+                            Text("No hay solicitudes pendientes en este momento", color = Color.Gray)
                         } else {
-                            LazyColumn(
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
+                            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 items(listaPendientes) { usuario ->
-                                    Card(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                                    ) {
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(16.dp)
-                                        ) {
-                                            Text(
-                                                text = "Instructor: ${usuario.nombre} ${usuario.apellido}",
-                                                style = MaterialTheme.typography.titleSmall,
-                                                fontWeight = FontWeight.Bold,
-                                                color = VerdeInstitucional
-                                            )
-                                            Text("Fecha Nacimiento: ${usuario.fechaNacimiento}", fontSize = 14.sp)
+                                    Card(modifier = Modifier.fillMaxWidth()) {
+                                        Column(modifier = Modifier.padding(16.dp)) {
+                                            Text("Instructor: ${usuario.nombre} ${usuario.apellido}", fontWeight = FontWeight.Bold, color = VerdeInstitucional)
                                             Text("Correo: ${usuario.correo}", fontSize = 14.sp)
                                             Text("Rol Solicitado: ${usuario.rol}", fontSize = 14.sp)
 
                                             Spacer(modifier = Modifier.height(12.dp))
 
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                            ) {
-                                                OutlinedButton(
-                                                    onClick = { usuarioAEditar = usuario },
-                                                    modifier = Modifier.weight(1f)
-                                                ) {
+                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                OutlinedButton(onClick = { usuarioAEditar = usuario }, modifier = Modifier.weight(1f)) {
                                                     Text("Editar Datos", fontSize = 12.sp)
                                                 }
-
-                                                OutlinedButton(
-                                                    onClick = { usuarioAVerDocumentos = usuario },
-                                                    modifier = Modifier.weight(1f)
-                                                ) {
+                                                OutlinedButton(onClick = { usuarioAVerDocumentos = usuario }, modifier = Modifier.weight(1f)) {
                                                     Text("Ver Docs", fontSize = 12.sp)
                                                 }
                                             }
 
                                             Spacer(modifier = Modifier.height(8.dp))
 
-                                            // Botón de Aprobar (Verde)
                                             Button(
                                                 onClick = {
                                                     if (usuariosPreview == null) {
@@ -412,42 +369,15 @@ fun VistaAdmin(
                                                             withContext(Dispatchers.Main) {
                                                                 Toast.makeText(context, "Docente activado exitosamente", Toast.LENGTH_SHORT).show()
                                                                 listaPendientes = db.usuarioDao().obtenerUsuariosPendientes()
+                                                                listaActivos = db.usuarioDao().obtenerTodosLosUsuarios().filter { it.cuentaActiva }
                                                             }
                                                         }
-                                                    } else {
-                                                        listaPendientes = listaPendientes.filter { it.id != usuario.id }
-                                                        Toast.makeText(context, "Docente activado", Toast.LENGTH_SHORT).show()
                                                     }
                                                 },
                                                 modifier = Modifier.fillMaxWidth(),
                                                 colors = ButtonDefaults.buttonColors(containerColor = VerdeInstitucional)
                                             ) {
                                                 Text("Aprobar y Activar Cuenta")
-                                            }
-
-                                            Spacer(modifier = Modifier.height(4.dp))
-
-                                            // Botón de Rechazar / Eliminar (Rojo)
-                                            Button(
-                                                onClick = {
-                                                    if (usuariosPreview == null) {
-                                                        val db = EsfocarDatabase.getDatabase(context)
-                                                        coroutineScope.launch(Dispatchers.IO) {
-                                                            db.usuarioDao().eliminarUsuario(usuario)
-                                                            withContext(Dispatchers.Main) {
-                                                                Toast.makeText(context, "Solicitud rechazada y eliminada", Toast.LENGTH_SHORT).show()
-                                                                listaPendientes = db.usuarioDao().obtenerUsuariosPendientes()
-                                                            }
-                                                        }
-                                                    } else {
-                                                        listaPendientes = listaPendientes.filter { it.id != usuario.id }
-                                                        Toast.makeText(context, "Solicitud rechazada", Toast.LENGTH_SHORT).show()
-                                                    }
-                                                },
-                                                modifier = Modifier.fillMaxWidth(),
-                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828))
-                                            ) {
-                                                Text("Rechazar Solicitud", color = Color.White, fontWeight = FontWeight.Bold)
                                             }
                                         }
                                     }
@@ -465,27 +395,17 @@ fun VistaAdmin(
         var editNombre by remember { mutableStateOf(usuario.nombre) }
         var editApellido by remember { mutableStateOf(usuario.apellido) }
         var editCorreo by remember { mutableStateOf(usuario.correo) }
+        var editRol by remember { mutableStateOf(usuario.rol) }
 
         AlertDialog(
             onDismissRequest = { usuarioAEditar = null },
-            title = { Text("Editar Datos de Instructor") },
+            title = { Text("Editar Información Completa") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = editNombre,
-                        onValueChange = { editNombre = it },
-                        label = { Text("Nombre") }
-                    )
-                    OutlinedTextField(
-                        value = editApellido,
-                        onValueChange = { editApellido = it },
-                        label = { Text("Apellido") }
-                    )
-                    OutlinedTextField(
-                        value = editCorreo,
-                        onValueChange = { editCorreo = it },
-                        label = { Text("Correo") }
-                    )
+                    OutlinedTextField(value = editNombre, onValueChange = { editNombre = it }, label = { Text("Nombre") })
+                    OutlinedTextField(value = editApellido, onValueChange = { editApellido = it }, label = { Text("Apellido") })
+                    OutlinedTextField(value = editCorreo, onValueChange = { editCorreo = it }, label = { Text("Correo") })
+                    OutlinedTextField(value = editRol, onValueChange = { editRol = it }, label = { Text("Rol (Docente / Carabinero / Admin)") })
                 }
             },
             confirmButton = {
@@ -497,12 +417,14 @@ fun VistaAdmin(
                                 val usuarioEditado = usuario.copy(
                                     nombre = editNombre,
                                     apellido = editApellido,
-                                    correo = editCorreo
+                                    correo = editCorreo,
+                                    rol = editRol
                                 )
                                 db.usuarioDao().actualizarUsuario(usuarioEditado)
                                 withContext(Dispatchers.Main) {
-                                    Toast.makeText(context, "Datos actualizados", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Datos actualizados correctamente", Toast.LENGTH_SHORT).show()
                                     listaPendientes = db.usuarioDao().obtenerUsuariosPendientes()
+                                    listaActivos = db.usuarioDao().obtenerTodosLosUsuarios().filter { it.cuentaActiva }
                                     usuarioAEditar = null
                                 }
                             }
@@ -516,34 +438,39 @@ fun VistaAdmin(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { usuarioAEditar = null }) {
-                    Text("Cancelar")
-                }
+                TextButton(onClick = { usuarioAEditar = null }) { Text("Cancelar") }
             }
         )
     }
 
-    // Modal para VER DOCUMENTOS
-    usuarioAVerDocumentos?.let { usuario ->
+    // Modal para EDITAR NOTA
+    if (editarNotaModal) {
+        var nuevaNota by remember { mutableStateOf(notaEjemplo) }
+
         AlertDialog(
-            onDismissRequest = { usuarioAVerDocumentos = null },
-            title = { Text("Documentos Adjuntos") },
+            onDismissRequest = { editarNotaModal = false },
+            title = { Text("Corregir Nota de Docente") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Documentos de: ${usuario.nombre} ${usuario.apellido}", fontWeight = FontWeight.Bold)
+                Column {
+                    Text("Ingresa la calificación corregida (ej: 4.0):")
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("• Título Profesional / Grado Académico: [Cargado ✓]")
-                    Text("• Certificado de Antecedentes: [Cargado ✓]")
-                    Text("• Curriculum Vitae Institucional: [Cargado ✓]")
+                    OutlinedTextField(value = nuevaNota, onValueChange = { nuevaNota = it }, label = { Text("Nota (1.0 a 7.0)") })
                 }
             },
             confirmButton = {
                 Button(
-                    onClick = { usuarioAVerDocumentos = null },
+                    onClick = {
+                        notaEjemplo = nuevaNota
+                        editarNotaModal = false
+                        Toast.makeText(context, "Nota actualizada a $nuevaNota", Toast.LENGTH_SHORT).show()
+                    },
                     colors = ButtonDefaults.buttonColors(containerColor = VerdeInstitucional)
                 ) {
-                    Text("Cerrar")
+                    Text("Actualizar Nota")
                 }
+            },
+            dismissButton = {
+                TextButton(onClick = { editarNotaModal = false }) { Text("Cancelar") }
             }
         )
     }
@@ -552,23 +479,7 @@ fun VistaAdmin(
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun PreviewVistaAdmin() {
-    val listaPrueba = listOf(
-        Usuario(
-            id = 1,
-            nombre = "Carlos",
-            apellido = "Pérez",
-            fechaNacimiento = "15/08/1988",
-            correo = "carlos.perez@gmail.com",
-            contrasena = "123456",
-            rol = "Docente",
-            cuentaActiva = false
-        )
-    )
-
     AppEsfocarTheme {
-        VistaAdmin(
-            onCerrarSesion = {},
-            usuariosPreview = listaPrueba
-        )
+        VistaAdmin(onCerrarSesion = {})
     }
 }

@@ -1,7 +1,5 @@
 package com.example.appesfocar.data
 
-
-
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
@@ -20,6 +18,9 @@ interface UsuarioDao {
 
     @Query("SELECT * FROM usuarios WHERE cuentaActiva = 0 AND rol = 'Docente'")
     suspend fun obtenerUsuariosPendientes(): List<Usuario>
+
+    @Query("SELECT * FROM usuarios")
+    suspend fun obtenerTodosLosUsuarios(): List<Usuario>
 
     @Update
     suspend fun actualizarUsuario(usuario: Usuario)

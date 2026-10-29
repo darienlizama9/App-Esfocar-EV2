@@ -1,6 +1,5 @@
 package com.example.appesfocar.ui.vistas
 
-import android.app.DatePickerDialog
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -22,12 +21,16 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,8 +58,12 @@ import com.example.appesfocar.ui.theme.VerdeInstitucional
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.Calendar
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VistaRegistro(
     onRegistroExitoso: () -> Unit,
@@ -74,21 +81,37 @@ fun VistaRegistro(
     var passwordVisible by remember { mutableStateOf(false) }
     var cargando by remember { mutableStateOf(false) }
 
-    // Configuración del Calendario Nativo
-    val calendar = Calendar.getInstance()
-    val datePickerDialog = DatePickerDialog(
-        context,
-        { _, year, month, dayOfMonth ->
-            fechaNacimiento = "$dayOfMonth/${month + 1}/$year"
-        },
-        calendar.get(Calendar.YEAR) - 25,
-        calendar.get(Calendar.MONTH),
-        calendar.get(Calendar.DAY_OF_MONTH)
-    )
+    // Estado del Calendario Material 3 (Permite elegir el año con 1 clic en la esquina superior)
+    var mostrarDatePicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState()
 
-    // Función auxiliar para validar formato de correo electrónico
     fun esCorreoValido(email: String): Boolean {
         return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
+    }
+
+    if (mostrarDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { mostrarDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val formatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                        formatter.timeZone = TimeZone.getTimeZone("UTC")
+                        fechaNacimiento = formatter.format(Date(millis))
+                    }
+                    mostrarDatePicker = false
+                }) {
+                    Text("ACEPTAR", color = VerdeInstitucional, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarDatePicker = false }) {
+                    Text("CANCELAR", color = Color.Gray)
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
     }
 
     Column(
@@ -137,18 +160,18 @@ fun VistaRegistro(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Campo de Fecha con Calendario Nativo
+        // Campo Fecha que abre el Calendario M3
         Box(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = fechaNacimiento,
                 onValueChange = {},
                 readOnly = true,
-                label = { Text("Fecha de Nacimiento (DD/MM/AAAA)") },
+                label = { Text("Fecha de Nacimiento (Toca para seleccionar)") },
                 trailingIcon = {
                     Icon(
                         imageVector = Icons.Default.DateRange,
                         contentDescription = "Seleccionar fecha",
-                        modifier = Modifier.clickable { datePickerDialog.show() }
+                        modifier = Modifier.clickable { mostrarDatePicker = true }
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -157,7 +180,7 @@ fun VistaRegistro(
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .clickable { datePickerDialog.show() }
+                    .clickable { mostrarDatePicker = true }
             )
         }
 
@@ -194,19 +217,16 @@ fun VistaRegistro(
 
         Button(
             onClick = {
-                // 1. Validar campos vacíos
                 if (nombre.isBlank() || apellido.isBlank() || fechaNacimiento.isBlank() || correo.isBlank() || contrasena.isBlank()) {
                     Toast.makeText(context, "Por favor completa todos los campos", Toast.LENGTH_SHORT).show()
                     return@Button
                 }
 
-                // 2. Validar formato de correo real
                 if (!esCorreoValido(correo.trim())) {
                     Toast.makeText(context, "Por favor ingresa un correo electrónico válido", Toast.LENGTH_LONG).show()
                     return@Button
                 }
 
-                // 3. Validar contraseña segura
                 if (contrasena.length < 6) {
                     Toast.makeText(context, "La contraseña debe tener al menos 6 caracteres", Toast.LENGTH_LONG).show()
                     return@Button
@@ -214,7 +234,6 @@ fun VistaRegistro(
 
                 cargando = true
                 coroutineScope.launch(Dispatchers.IO) {
-                    // Validar si el correo ya está registrado en la BD
                     val usuarioExistente = db.usuarioDao().obtenerUsuarioPorCorreo(correo.trim())
                     if (usuarioExistente != null) {
                         withContext(Dispatchers.Main) {
@@ -238,7 +257,7 @@ fun VistaRegistro(
                         cargando = false
                         Toast.makeText(
                             context,
-                            "Solicitud de registro con éxito. Contacte a su administrador para autorizar permisos.",
+                            "Solicitud enviada con éxito. Un administrador activará su cuenta.",
                             Toast.LENGTH_LONG
                         ).show()
                         onRegistroExitoso()
