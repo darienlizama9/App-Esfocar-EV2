@@ -3,6 +3,7 @@ package com.example.appesfocar.data
 
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -22,4 +23,10 @@ interface UsuarioDao {
 
     @Update
     suspend fun actualizarUsuario(usuario: Usuario)
+
+    @Query("SELECT * FROM usuarios WHERE correo = :correo LIMIT 1")
+    suspend fun obtenerUsuarioPorCorreo(correo: String): Usuario?
+
+    @Delete
+    suspend fun eliminarUsuario(usuario: Usuario)
 }

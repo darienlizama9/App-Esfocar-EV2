@@ -11,9 +11,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -32,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,7 +52,7 @@ import kotlinx.coroutines.withContext
 
 @Composable
 fun VistaLogin(
-    onLoginExitoso: (rol: String) -> Unit,
+    onLoginExitoso: (rol: String, correo: String) -> Unit,
     onRegistrar: () -> Unit
 ) {
     val context = LocalContext.current
@@ -55,6 +61,7 @@ fun VistaLogin(
 
     var correo by remember { mutableStateOf("") }
     var contrasena by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
     var cargando by remember { mutableStateOf(false) }
 
     Column(
@@ -100,7 +107,13 @@ fun VistaLogin(
             label = { Text("Contraseña") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            visualTransformation = PasswordVisualTransformation()
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(imageVector = image, contentDescription = "Mostrar/Ocultar contraseña")
+                }
+            }
         )
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -114,7 +127,6 @@ fun VistaLogin(
 
                 cargando = true
                 coroutineScope.launch(Dispatchers.IO) {
-                    // Llamamos a la función iniciarSesion de tu DAO
                     val usuario: Usuario? = db.usuarioDao().iniciarSesion(correo, contrasena)
                     withContext(Dispatchers.Main) {
                         cargando = false
@@ -122,8 +134,12 @@ fun VistaLogin(
                             if (!usuario.cuentaActiva) {
                                 Toast.makeText(context, "Cuenta deshabilitada por el Administrador", Toast.LENGTH_LONG).show()
                             } else {
-                                Toast.makeText(context, "Bienvenido/a ${usuario.nombre}", Toast.LENGTH_SHORT).show()
-                                onLoginExitoso(usuario.rol)
+                                // Validamos si es Admin para mostrar el saludo formal correspondiente
+                                val esAdmin = usuario.rol.equals("Admin", ignoreCase = true) || usuario.rol.equals("Administrador", ignoreCase = true)
+                                val mensaje = if (esAdmin) "Bienvenido Administrador" else "Bienvenido/a ${usuario.nombre}"
+
+                                Toast.makeText(context, mensaje, Toast.LENGTH_SHORT).show()
+                                onLoginExitoso(usuario.rol, usuario.correo)
                             }
                         } else {
                             Toast.makeText(context, "Credenciales incorrectas", Toast.LENGTH_SHORT).show()
@@ -156,6 +172,6 @@ fun VistaLogin(
 @Composable
 fun PreviewLogin() {
     AppEsfocarTheme {
-        VistaLogin(onLoginExitoso = {}, onRegistrar = {})
+        VistaLogin(onLoginExitoso = { _, _ -> }, onRegistrar = {})
     }
 }

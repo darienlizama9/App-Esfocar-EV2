@@ -225,7 +225,7 @@ fun VistaAdmin(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "Bienvenido/a al Panel de Administración",
+                                text = "Bienvenido Administrador", // Saludo corregido
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = VerdeInstitucional
@@ -311,7 +311,7 @@ fun VistaAdmin(
                                                 color = VerdeInstitucional
                                             )
                                             Text("Fecha Nacimiento: ${usuario.fechaNacimiento}", fontSize = 14.sp)
-                                            Text("Correo Institucional: ${usuario.correo}", fontSize = 14.sp)
+                                            Text("Correo: ${usuario.correo}", fontSize = 14.sp)
                                             Text("Rol Solicitado: ${usuario.rol}", fontSize = 14.sp)
 
                                             Spacer(modifier = Modifier.height(12.dp))
@@ -337,6 +337,7 @@ fun VistaAdmin(
 
                                             Spacer(modifier = Modifier.height(8.dp))
 
+                                            // Botón de Aprobar (Verde)
                                             Button(
                                                 onClick = {
                                                     if (usuariosPreview == null) {
@@ -349,12 +350,43 @@ fun VistaAdmin(
                                                                 listaPendientes = db.usuarioDao().obtenerUsuariosPendientes()
                                                             }
                                                         }
+                                                    } else {
+                                                        listaPendientes = listaPendientes.filter { it.id != usuario.id }
+                                                        Toast.makeText(context, "Docente activado", Toast.LENGTH_SHORT).show()
                                                     }
                                                 },
                                                 modifier = Modifier.fillMaxWidth(),
                                                 colors = ButtonDefaults.buttonColors(containerColor = VerdeInstitucional)
                                             ) {
                                                 Text("Aprobar y Activar Cuenta")
+                                            }
+
+                                            Spacer(modifier = Modifier.height(4.dp))
+
+                                            // Botón de Rechazar / Eliminar (Rojo)
+                                            Button(
+                                                onClick = {
+                                                    if (usuariosPreview == null) {
+                                                        val db = EsfocarDatabase.getDatabase(context)
+                                                        coroutineScope.launch(Dispatchers.IO) {
+                                                            // Si tienes un método DAO para eliminar, puedes usarlo,
+                                                            // o actualizar el usuario a un estado eliminado / borrar de la BD.
+                                                            // Aquí simulamos eliminándolo de la lista visual o ejecutando el DAO si existe.
+                                                            db.usuarioDao().eliminarUsuario(usuario)
+                                                            withContext(Dispatchers.Main) {
+                                                                Toast.makeText(context, "Solicitud rechazada y eliminada", Toast.LENGTH_SHORT).show()
+                                                                listaPendientes = db.usuarioDao().obtenerUsuariosPendientes()
+                                                            }
+                                                        }
+                                                    } else {
+                                                        listaPendientes = listaPendientes.filter { it.id != usuario.id }
+                                                        Toast.makeText(context, "Solicitud rechazada", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)) // Rojo intenso
+                                            ) {
+                                                Text("Rechazar Solicitud", color = Color.White, fontWeight = FontWeight.Bold)
                                             }
                                         }
                                     }
@@ -465,7 +497,7 @@ fun PreviewVistaAdmin() {
             nombre = "Carlos",
             apellido = "Pérez",
             fechaNacimiento = "15/08/1988",
-            correo = "carlos.perez@carabineros.cl",
+            correo = "carlos.perez@gmail.com",
             contrasena = "123456",
             rol = "Docente",
             cuentaActiva = false
