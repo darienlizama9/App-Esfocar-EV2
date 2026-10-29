@@ -73,7 +73,7 @@ fun VistaRegistro(
         Image(
             painter = painterResource(id = R.drawable.logo_esfocar),
             contentDescription = "Logo oficial ESFOCAR",
-            modifier = Modifier.fillMaxWidth(0.5f),
+            modifier = Modifier.fillMaxWidth(0.8f),
             contentScale = ContentScale.Fit
         )
 
