@@ -77,10 +77,11 @@ fun NavegacionPrincipal() {
             startDestination = "bienvenida",
             modifier = Modifier.padding(paddingValues)
         ) {
-            // Flujo de Acceso
+            // Flujo de Acceso Actualizado
             composable("bienvenida") {
                 VistaBienvenida(
-                    onTimeout = { navController.navigate("login") }
+                    onIniciarSesion = { navController.navigate("login") },
+                    onRegistrarse = { navController.navigate("registro") }
                 )
             }
 
