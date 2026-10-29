@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ExitToApp
@@ -29,6 +31,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -60,12 +64,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.appesfocar.data.EsfocarDatabase
+import com.example.appesfocar.data.Rubrica
 import com.example.appesfocar.data.Usuario
 import com.example.appesfocar.ui.theme.AppEsfocarTheme
 import com.example.appesfocar.ui.theme.VerdeInstitucional
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,13 +87,12 @@ fun VistaAdmin(
 
     var listaPendientes by remember { mutableStateOf(usuariosPreview ?: emptyList()) }
     var listaActivos by remember { mutableStateOf<List<Usuario>>(emptyList()) }
+    var listaRubricas by remember { mutableStateOf<List<Rubrica>>(emptyList()) }
 
     var usuarioAEditar by remember { mutableStateOf<Usuario?>(null) }
     var usuarioAVerDocumentos by remember { mutableStateOf<Usuario?>(null) }
+    var rubricaAEditar by remember { mutableStateOf<Rubrica?>(null) }
     var reporteGenerado by remember { mutableStateOf(false) }
-
-    var notaEjemplo by remember { mutableStateOf("2.75") }
-    var editarNotaModal by remember { mutableStateOf(false) }
 
     if (usuariosPreview == null) {
         val db = remember { EsfocarDatabase.getDatabase(context) }
@@ -96,9 +101,11 @@ fun VistaAdmin(
             coroutineScope.launch(Dispatchers.IO) {
                 val pendientes = db.usuarioDao().obtenerUsuariosPendientes()
                 val todos = db.usuarioDao().obtenerTodosLosUsuarios()
+                val rubricas = db.rubricaDao().obtenerTodasLasRubricas()
                 withContext(Dispatchers.Main) {
                     listaPendientes = pendientes
                     listaActivos = todos.filter { it.cuentaActiva }
+                    listaRubricas = rubricas
                 }
             }
         }
@@ -150,7 +157,7 @@ fun VistaAdmin(
 
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.Grade, contentDescription = null) },
-                    label = { Text("Historial de Notas") },
+                    label = { Text("Historial de Notas (${listaRubricas.size})") },
                     selected = seccionActual == "notas",
                     onClick = { seccionActual = "notas"; coroutineScope.launch { drawerState.close() } },
                     modifier = Modifier.padding(horizontal = 12.dp)
@@ -184,7 +191,7 @@ fun VistaAdmin(
                             when (seccionActual) {
                                 "inicio" -> "Dashboard Administrador"
                                 "activos" -> "Docentes y Carabineros Activos"
-                                "notas" -> "Gestión de Notas y Rúbricas"
+                                "notas" -> "Historial de Calificaciones"
                                 "reportes" -> "Generar Reportes"
                                 else -> "Aprobación de Solicitudes"
                             },
@@ -270,6 +277,43 @@ fun VistaAdmin(
                         }
                     }
 
+                    "notas" -> {
+                        Text("Calificaciones Guardadas en Room (${listaRubricas.size})", style = MaterialTheme.typography.titleMedium, color = VerdeInstitucional, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
+
+                        if (listaRubricas.isEmpty()) {
+                            Text("No hay evaluaciones registradas en la base de datos todavía", color = Color.Gray)
+                        } else {
+                            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                items(listaRubricas) { rubrica ->
+                                    Card(modifier = Modifier.fillMaxWidth()) {
+                                        Column(modifier = Modifier.padding(16.dp)) {
+                                            Text("${rubrica.titulo} (#${rubrica.id})", fontWeight = FontWeight.Bold, color = VerdeInstitucional)
+                                            Text("Tipo: ${rubrica.tipo}", fontSize = 13.sp)
+
+                                            Text(
+                                                text = "Nota Registrada: ${String.format(Locale.US, "%.2f", rubrica.nota)} - ${if (rubrica.nota >= 4.0) "APROBADO" else "REPROBADO"}",
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (rubrica.nota >= 4.0) VerdeInstitucional else Color.Red,
+                                                fontSize = 15.sp
+                                            )
+                                            Text("Feedback: \"${rubrica.feedback}\"", fontSize = 13.sp, color = Color.DarkGray)
+
+                                            Spacer(modifier = Modifier.height(8.dp))
+
+                                            Button(
+                                                onClick = { rubricaAEditar = rubrica },
+                                                colors = ButtonDefaults.buttonColors(containerColor = VerdeInstitucional),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Text("Editar Nota de Evaluación")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     "reportes" -> {
                         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                             Text("Módulo de Reportes PDF", style = MaterialTheme.typography.titleMedium, color = VerdeInstitucional, fontWeight = FontWeight.Bold)
@@ -300,32 +344,9 @@ fun VistaAdmin(
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Text("Escuela de Formación de Carabineros - ESFOCAR")
                                         Text("• Total Docentes Registrados: ${listaActivos.size}")
+                                        Text("• Total Evaluaciones Guardadas: ${listaRubricas.size}")
                                         Text("• Solicitudes Pendientes: ${listaPendientes.size}")
-                                        Text("• Estado Base de Datos: Sincronizada OK")
                                         Text("• Sello de Validación: [Aprobado por Administración]")
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    "notas" -> {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text("Registro y Edición de Rúbricas / Notas", style = MaterialTheme.typography.titleMedium, color = VerdeInstitucional, fontWeight = FontWeight.Bold)
-
-                            Card(modifier = Modifier.fillMaxWidth()) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Text("Evaluación General - Rúbrica Institucional", fontWeight = FontWeight.Bold)
-                                    Text("Calificación Actual Registrada: $notaEjemplo", fontSize = 16.sp, color = if ((notaEjemplo.toFloatOrNull() ?: 0f) >= 4.0) VerdeInstitucional else Color.Red, fontWeight = FontWeight.Bold)
-                                    Text("Estado: ${if ((notaEjemplo.toFloatOrNull() ?: 0f) >= 4.0) "APROBADO" else "REPROBADO"}")
-
-                                    Spacer(modifier = Modifier.height(12.dp))
-
-                                    Button(
-                                        onClick = { editarNotaModal = true },
-                                        colors = ButtonDefaults.buttonColors(containerColor = VerdeInstitucional)
-                                    ) {
-                                        Text("Editar Nota de Docente")
                                     }
                                 }
                             }
@@ -390,22 +411,64 @@ fun VistaAdmin(
         }
     }
 
-    // Modal para EDITAR DATOS
+    // Modal EDITAR USUARIO CON MENÚ DESPLEGABLE DE ROL
     usuarioAEditar?.let { usuario ->
         var editNombre by remember { mutableStateOf(usuario.nombre) }
         var editApellido by remember { mutableStateOf(usuario.apellido) }
         var editCorreo by remember { mutableStateOf(usuario.correo) }
         var editRol by remember { mutableStateOf(usuario.rol) }
 
+        var menuRolExpandido by remember { mutableStateOf(false) }
+        val opcionesRoles = listOf("Docente", "Carabinero", "Admin")
+
         AlertDialog(
             onDismissRequest = { usuarioAEditar = null },
             title = { Text("Editar Información Completa") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = editNombre, onValueChange = { editNombre = it }, label = { Text("Nombre") })
-                    OutlinedTextField(value = editApellido, onValueChange = { editApellido = it }, label = { Text("Apellido") })
-                    OutlinedTextField(value = editCorreo, onValueChange = { editCorreo = it }, label = { Text("Correo") })
-                    OutlinedTextField(value = editRol, onValueChange = { editRol = it }, label = { Text("Rol (Docente / Carabinero / Admin)") })
+                    OutlinedTextField(value = editNombre, onValueChange = { editNombre = it }, label = { Text("Nombre") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = editApellido, onValueChange = { editApellido = it }, label = { Text("Apellido") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = editCorreo, onValueChange = { editCorreo = it }, label = { Text("Correo") }, modifier = Modifier.fillMaxWidth())
+
+                    // Selector Desplegable de Rol
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = editRol,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Rol Seleccionado (Haz clic)") },
+                            trailingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = "Seleccionar rol",
+                                    modifier = Modifier.clickable { menuRolExpandido = true }
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        DropdownMenu(
+                            expanded = menuRolExpandido,
+                            onDismissRequest = { menuRolExpandido = false },
+                            modifier = Modifier.fillMaxWidth(0.8f)
+                        ) {
+                            opcionesRoles.forEach { rolOpcion ->
+                                DropdownMenuItem(
+                                    text = { Text(rolOpcion, fontWeight = FontWeight.Bold) },
+                                    onClick = {
+                                        editRol = rolOpcion
+                                        menuRolExpandido = false
+                                    }
+                                )
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable { menuRolExpandido = true }
+                        )
+                    }
                 }
             },
             confirmButton = {
@@ -443,34 +506,56 @@ fun VistaAdmin(
         )
     }
 
-    // Modal para EDITAR NOTA
-    if (editarNotaModal) {
-        var nuevaNota by remember { mutableStateOf(notaEjemplo) }
+    // Modal EDITAR NOTA EN ROOM
+    rubricaAEditar?.let { rubrica ->
+        var nuevaNota by remember { mutableStateOf(rubrica.nota.toString()) }
 
         AlertDialog(
-            onDismissRequest = { editarNotaModal = false },
-            title = { Text("Corregir Nota de Docente") },
+            onDismissRequest = { rubricaAEditar = null },
+            title = { Text("Editar Nota de Evaluación") },
             text = {
                 Column {
-                    Text("Ingresa la calificación corregida (ej: 4.0):")
+                    Text("Ingresa la calificación corregida (entre 1.0 y 7.0):")
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = nuevaNota, onValueChange = { nuevaNota = it }, label = { Text("Nota (1.0 a 7.0)") })
+                    OutlinedTextField(
+                        value = nuevaNota,
+                        onValueChange = { nuevaNota = it },
+                        label = { Text("Nota (1.0 - 7.0)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        notaEjemplo = nuevaNota
-                        editarNotaModal = false
-                        Toast.makeText(context, "Nota actualizada a $nuevaNota", Toast.LENGTH_SHORT).show()
+                        val notaDouble = nuevaNota.replace(',', '.').toDoubleOrNull()
+                        if (notaDouble == null || notaDouble !in 1.0..7.0) {
+                            Toast.makeText(context, "La nota debe estar entre 1.0 y 7.0", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+
+                        if (usuariosPreview == null) {
+                            val db = EsfocarDatabase.getDatabase(context)
+                            coroutineScope.launch(Dispatchers.IO) {
+                                val rubricaEditada = rubrica.copy(nota = notaDouble)
+                                db.rubricaDao().actualizarRubrica(rubricaEditada)
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(context, "Calificación corregida en la BD", Toast.LENGTH_SHORT).show()
+                                    listaRubricas = db.rubricaDao().obtenerTodasLasRubricas()
+                                    rubricaAEditar = null
+                                }
+                            }
+                        } else {
+                            rubricaAEditar = null
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = VerdeInstitucional)
                 ) {
-                    Text("Actualizar Nota")
+                    Text("Actualizar en Room")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { editarNotaModal = false }) { Text("Cancelar") }
+                TextButton(onClick = { rubricaAEditar = null }) { Text("Cancelar") }
             }
         )
     }
