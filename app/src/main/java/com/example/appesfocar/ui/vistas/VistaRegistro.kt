@@ -1,9 +1,12 @@
 package com.example.appesfocar.ui.vistas
 
+import android.app.DatePickerDialog
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
@@ -51,6 +55,7 @@ import com.example.appesfocar.ui.theme.VerdeInstitucional
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Calendar
 
 @Composable
 fun VistaRegistro(
@@ -66,8 +71,20 @@ fun VistaRegistro(
     var fechaNacimiento by remember { mutableStateOf("") }
     var correo by remember { mutableStateOf("") }
     var contrasena by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) } // Estado para el ojo de la contraseña
+    var passwordVisible by remember { mutableStateOf(false) }
     var cargando by remember { mutableStateOf(false) }
+
+    // Configuración del Calendario Nativo
+    val calendar = Calendar.getInstance()
+    val datePickerDialog = DatePickerDialog(
+        context,
+        { _, year, month, dayOfMonth ->
+            fechaNacimiento = "$dayOfMonth/${month + 1}/$year"
+        },
+        calendar.get(Calendar.YEAR) - 25,
+        calendar.get(Calendar.MONTH),
+        calendar.get(Calendar.DAY_OF_MONTH)
+    )
 
     // Función auxiliar para validar formato de correo electrónico
     fun esCorreoValido(email: String): Boolean {
@@ -120,13 +137,29 @@ fun VistaRegistro(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        OutlinedTextField(
-            value = fechaNacimiento,
-            onValueChange = { fechaNacimiento = it },
-            label = { Text("Fecha de Nacimiento (DD/MM/AAAA)") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
+        // Campo de Fecha con Calendario Nativo
+        Box(modifier = Modifier.fillMaxWidth()) {
+            OutlinedTextField(
+                value = fechaNacimiento,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Fecha de Nacimiento (DD/MM/AAAA)") },
+                trailingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = "Seleccionar fecha",
+                        modifier = Modifier.clickable { datePickerDialog.show() }
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clickable { datePickerDialog.show() }
+            )
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -167,13 +200,13 @@ fun VistaRegistro(
                     return@Button
                 }
 
-                // 2. Validar formato de correo real (Gmail, Outlook, etc.)
+                // 2. Validar formato de correo real
                 if (!esCorreoValido(correo.trim())) {
                     Toast.makeText(context, "Por favor ingresa un correo electrónico válido", Toast.LENGTH_LONG).show()
                     return@Button
                 }
 
-                // 3. Validar contraseña segura (mínimo 6 caracteres)
+                // 3. Validar contraseña segura
                 if (contrasena.length < 6) {
                     Toast.makeText(context, "La contraseña debe tener al menos 6 caracteres", Toast.LENGTH_LONG).show()
                     return@Button
