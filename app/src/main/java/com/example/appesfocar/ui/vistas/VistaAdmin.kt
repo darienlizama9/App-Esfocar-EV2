@@ -270,6 +270,27 @@ fun VistaAdmin(
                                             ) {
                                                 Text("Editar Información y Rol")
                                             }
+
+                                            Spacer(modifier = Modifier.height(4.dp))
+
+                                            Button(
+                                                onClick = {
+                                                    if (usuariosPreview == null) {
+                                                        val db = EsfocarDatabase.getDatabase(context)
+                                                        coroutineScope.launch(Dispatchers.IO) {
+                                                            db.usuarioDao().eliminarUsuario(usuario)
+                                                            withContext(Dispatchers.Main) {
+                                                                Toast.makeText(context, "Cuenta eliminada", Toast.LENGTH_SHORT).show()
+                                                                listaActivos = db.usuarioDao().obtenerTodosLosUsuarios().filter { it.cuentaActiva }
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828))
+                                            ) {
+                                                Text("Eliminar Cuenta", color = Color.White, fontWeight = FontWeight.Bold)
+                                            }
                                         }
                                     }
                                 }
@@ -291,7 +312,7 @@ fun VistaAdmin(
                                             Text("Tipo: ${rubrica.tipo}", fontSize = 13.sp)
 
                                             Text(
-                                                text = "Nota Registrada: ${String.format(Locale.US, "%.2f", rubrica.nota)} - ${if (rubrica.nota >= 4.0) "APROBADO" else "REPROBADO"}",
+                                                text = "Nota Registrada: ${String.format(Locale.US, "%.2f", rubrica.nota)}\n${if (rubrica.nota >= 4.0) "APROBADO" else "REPROBADO"}",
                                                 fontWeight = FontWeight.Bold,
                                                 color = if (rubrica.nota >= 4.0) VerdeInstitucional else Color.Red,
                                                 fontSize = 15.sp
@@ -400,6 +421,27 @@ fun VistaAdmin(
                                             ) {
                                                 Text("Aprobar y Activar Cuenta")
                                             }
+
+                                            Spacer(modifier = Modifier.height(4.dp))
+
+                                            Button(
+                                                onClick = {
+                                                    if (usuariosPreview == null) {
+                                                        val db = EsfocarDatabase.getDatabase(context)
+                                                        coroutineScope.launch(Dispatchers.IO) {
+                                                            db.usuarioDao().eliminarUsuario(usuario)
+                                                            withContext(Dispatchers.Main) {
+                                                                Toast.makeText(context, "Solicitud rechazada y eliminada", Toast.LENGTH_SHORT).show()
+                                                                listaPendientes = db.usuarioDao().obtenerUsuariosPendientes()
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828))
+                                            ) {
+                                                Text("Rechazar Solicitud", color = Color.White, fontWeight = FontWeight.Bold)
+                                            }
                                         }
                                     }
                                 }
@@ -506,7 +548,6 @@ fun VistaAdmin(
         )
     }
 
-    // Modal EDITAR NOTA EN ROOM
     rubricaAEditar?.let { rubrica ->
         var nuevaNota by remember { mutableStateOf(rubrica.nota.toString()) }
 

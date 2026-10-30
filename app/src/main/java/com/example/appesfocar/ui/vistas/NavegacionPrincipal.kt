@@ -48,7 +48,6 @@ import com.example.appesfocar.data.EsfocarDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-// Objeto global para mantener la sesión activa del correo entre pestañas
 object SesionUsuario {
     var correoActual: String = ""
 }
@@ -60,7 +59,6 @@ fun NavegacionPrincipal() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
 
-    // Ocultar la barra inferior en pantallas de acceso
     val mostrarBarraInferior = rutaActual in listOf("ruta_rubricas", "ruta_documentos") || rutaActual?.startsWith("ruta_perfil") == true
 
     Scaffold(
@@ -84,7 +82,6 @@ fun NavegacionPrincipal() {
                         label = { Text("Perfil") },
                         selected = rutaActual?.startsWith("ruta_perfil") == true,
                         onClick = {
-                            // Navega al perfil usando el correo guardado en la sesión global
                             val correoDestino = SesionUsuario.correoActual
                             navController.navigate("ruta_perfil/$correoDestino") { launchSingleTop = true }
                         }
@@ -167,7 +164,6 @@ fun NavegacionPrincipal() {
     }
 }
 
-// Vista Perfil conectada a la base de datos para mostrar los datos reales del usuario
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VistaPerfil(navController: NavHostController, correo: String) {

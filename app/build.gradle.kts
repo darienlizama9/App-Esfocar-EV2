@@ -49,7 +49,6 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
 
-    // CORRECCIÓN 1: Versión directa de navegación
     implementation("androidx.navigation:navigation-compose:2.7.7")
 
     testImplementation(libs.junit)
@@ -60,7 +59,6 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
-    // CORRECCIÓN 2: Versión estable real de Room
     val room_version = "2.8.4"
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version")

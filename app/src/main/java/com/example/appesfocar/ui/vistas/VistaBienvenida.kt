@@ -73,14 +73,13 @@ fun VistaBienvenida(
         ) {
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Sección Superior: Logo e Identidad Institucional
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.logo_esfocar),
                     contentDescription = "Logo oficial ESFOCAR",
-                    modifier = Modifier.fillMaxWidth(0.65f),
+                    modifier = Modifier.fillMaxWidth(0.80f),
                     contentScale = ContentScale.Fit
                 )
 
@@ -102,7 +101,6 @@ fun VistaBienvenida(
                 )
             }
 
-            // Card Central Elevada con Acciones Interactivas
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -132,7 +130,6 @@ fun VistaBienvenida(
                         modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
                     )
 
-                    // Botón Principal: Iniciar Sesión
                     Button(
                         onClick = onIniciarSesion,
                         modifier = Modifier
@@ -157,7 +154,6 @@ fun VistaBienvenida(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Botón Secundario: Registro
                     OutlinedButton(
                         onClick = onRegistrarse,
                         modifier = Modifier

@@ -51,21 +51,28 @@ fun VistaRubricas() {
     val coroutineScope = rememberCoroutineScope()
     val db = remember { EsfocarDatabase.getDatabase(context) }
 
-    // Variables para los puntajes/notas de los criterios
+    var nombreAlumno by remember { mutableStateOf("") }
+    var apellidoAlumno by remember { mutableStateOf("") }
+    var rutAlumno by remember { mutableStateOf("") }
+
     var criterio1 by remember { mutableStateOf("") }
     var criterio2 by remember { mutableStateOf("") }
     var criterio3 by remember { mutableStateOf("") }
     var criterio4 by remember { mutableStateOf("") }
 
-    // Campo para el feedback cualitativo
     var comentarioProfesor by remember { mutableStateOf("") }
 
-    // Resultados finales
     var notaFinal by remember { mutableStateOf("") }
     var feedbackEstado by remember { mutableStateOf("") }
     var colorResultado by remember { mutableStateOf(Color.DarkGray) }
 
     val scrollState = rememberScrollState()
+
+    //validar rut
+    fun esRutValido(rut: String): Boolean {
+        val regex = "^[0-9]{7,8}-[0-9kK]$".toRegex()
+        return regex.matches(rut)
+    }
 
     Scaffold(
         topBar = {
@@ -83,7 +90,6 @@ fun VistaRubricas() {
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Tarjeta de instrucciones
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -98,81 +104,124 @@ fun VistaRubricas() {
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Ingrese la calificación obtenida en cada uno de los 4 criterios de la rúbrica institucional (Escala obligatoria de 1.0 a 7.0). Todos los campos son obligatorios.",
+                        text = "Ingrese los datos del estudiante y la calificación obtenida en cada uno de los 4 criterios (Escala 1.0 a 7.0). Todos los campos son obligatorios.",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.DarkGray
                     )
                 }
             }
 
-            // Campos de Criterios
+            Text(
+                text = "Datos del Alumno",
+                fontWeight = FontWeight.Bold,
+                color = Color.DarkGray,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            )
+
+            OutlinedTextField(
+                value = nombreAlumno,
+                onValueChange = { nombreAlumno = it },
+                label = { Text("Nombre del Alumno") },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = apellidoAlumno,
+                onValueChange = { apellidoAlumno = it },
+                label = { Text("Apellido del Alumno") },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = rutAlumno,
+                onValueChange = { rutAlumno = it },
+                label = { Text("RUT del Alumno (Ej: 12345678-9)") },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp),
+                singleLine = true
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(bottom = 20.dp))
+
+            Text(
+                text = "Calificaciones por Criterio",
+                fontWeight = FontWeight.Bold,
+                color = Color.DarkGray,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            )
+
             OutlinedTextField(
                 value = criterio1,
-                onValueChange = { criterio1 = it },
+                onValueChange = {
+                    criterio1 = it
+                    notaFinal = ""
+                },
                 label = { Text("1. Presentación y Porte (1.0 - 7.0)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                 singleLine = true
             )
 
             OutlinedTextField(
                 value = criterio2,
-                onValueChange = { criterio2 = it },
+                onValueChange = {
+                    criterio2 = it
+                    notaFinal = ""
+                },
                 label = { Text("2. Dominio Técnico / Táctico (1.0 - 7.0)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                 singleLine = true
             )
 
             OutlinedTextField(
                 value = criterio3,
-                onValueChange = { criterio3 = it },
+                onValueChange = {
+                    criterio3 = it
+                    notaFinal = ""
+                },
                 label = { Text("3. Disciplina y Rigor (1.0 - 7.0)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                 singleLine = true
             )
 
             OutlinedTextField(
                 value = criterio4,
-                onValueChange = { criterio4 = it },
+                onValueChange = {
+                    criterio4 = it
+                    notaFinal = ""
+                },
                 label = { Text("4. Liderazgo y Trabajo en Equipo (1.0 - 7.0)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                 singleLine = true
             )
 
-            // Campo para el Feedback
             OutlinedTextField(
                 value = comentarioProfesor,
                 onValueChange = { comentarioProfesor = it },
                 label = { Text("Retroalimentación / Feedback del Instructor") },
                 placeholder = { Text("Escriba observaciones obligatorias para el estudiante...") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(110.dp)
-                    .padding(bottom = 20.dp),
+                modifier = Modifier.fillMaxWidth().height(110.dp).padding(bottom = 20.dp),
                 maxLines = 4
             )
 
-            // Botón de cálculo
             Button(
                 onClick = {
-                    // 1. Validar que no haya campos vacíos
-                    if (criterio1.isBlank() || criterio2.isBlank() || criterio3.isBlank() || criterio4.isBlank() || comentarioProfesor.isBlank()) {
-                        Toast.makeText(context, "Debes completar los 4 criterios y la retroalimentación", Toast.LENGTH_LONG).show()
+                    if (nombreAlumno.isBlank() || apellidoAlumno.isBlank() || rutAlumno.isBlank() ||
+                        criterio1.isBlank() || criterio2.isBlank() || criterio3.isBlank() ||
+                        criterio4.isBlank() || comentarioProfesor.isBlank()) {
+                        Toast.makeText(context, "Debes completar los datos del alumno, los 4 criterios y la retroalimentación", Toast.LENGTH_LONG).show()
                         return@Button
                     }
 
-                    // 2. Convertir valores
+                    if (!esRutValido(rutAlumno.trim())) {
+                        Toast.makeText(context, "Ingrese un RUT válido (Ej: 12345678-9 o 12345678-K)", Toast.LENGTH_LONG).show()
+                        return@Button
+                    }
+
                     val n1 = criterio1.replace(',', '.').toDoubleOrNull()
                     val n2 = criterio2.replace(',', '.').toDoubleOrNull()
                     val n3 = criterio3.replace(',', '.').toDoubleOrNull()
@@ -183,13 +232,11 @@ fun VistaRubricas() {
                         return@Button
                     }
 
-                    // 3. Validar rango estricto de 1.0 a 7.0
                     if (n1 !in 1.0..7.0 || n2 !in 1.0..7.0 || n3 !in 1.0..7.0 || n4 !in 1.0..7.0) {
                         Toast.makeText(context, "Las notas deben estar obligatoriamente entre 1.0 y 7.0", Toast.LENGTH_LONG).show()
                         return@Button
                     }
 
-                    // 4. Calcular promedio
                     val promedio = (n1 + n2 + n3 + n4) / 4.0
                     notaFinal = String.format(Locale.US, "%.2f", promedio)
 
@@ -201,23 +248,20 @@ fun VistaRubricas() {
                         colorResultado = Color(0xFFC62828)
                     }
 
-                    // 5. Guardar evaluación en Room Database con la estructura exacta de tu Rubrica.kt
                     coroutineScope.launch(Dispatchers.IO) {
                         val nuevaRubrica = Rubrica(
-                            titulo = "Evaluación Institucional",
-                            tipo = "Rúbrica Desempeño",
+                            titulo = "Evaluación Alumno: ${nombreAlumno.trim()} ${apellidoAlumno.trim()}",
+                            tipo = "RUT: ${rutAlumno.trim()}",
                             nota = promedio,
-                            feedback = comentarioProfesor
+                            feedback = comentarioProfesor.trim()
                         )
                         db.rubricaDao().guardarRubrica(nuevaRubrica)
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Calificación registrada con éxito en el sistema", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Calificación de $nombreAlumno registrada con éxito", Toast.LENGTH_SHORT).show()
                         }
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B5E20))
             ) {
                 Text("CALCULAR NOTA Y GENERAR REPORTE", fontSize = 15.sp, fontWeight = FontWeight.Bold)
@@ -225,12 +269,9 @@ fun VistaRubricas() {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Tarjeta de Resultados
             if (notaFinal.isNotEmpty()) {
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 24.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White)
                 ) {
@@ -238,6 +279,19 @@ fun VistaRubricas() {
                         modifier = Modifier.padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        Text(
+                            text = "ALUMNO EVALUADO:",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.Gray
+                        )
+                        Text(
+                            text = "$nombreAlumno $apellidoAlumno",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            color = Color.Black,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+
                         Text(
                             text = "CALIFICACIÓN FINAL",
                             style = MaterialTheme.typography.labelMedium,

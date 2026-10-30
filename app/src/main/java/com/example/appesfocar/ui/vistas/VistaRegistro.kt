@@ -81,7 +81,6 @@ fun VistaRegistro(
     var passwordVisible by remember { mutableStateOf(false) }
     var cargando by remember { mutableStateOf(false) }
 
-    // Estado del Calendario Material 3 (Permite elegir el año con 1 clic en la esquina superior)
     var mostrarDatePicker by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState()
 

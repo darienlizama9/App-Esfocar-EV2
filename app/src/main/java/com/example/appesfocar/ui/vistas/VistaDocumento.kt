@@ -1,5 +1,5 @@
 package com.example.appesfocar.ui.vistas
-import androidx.compose.ui.tooling.preview.Preview
+
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
@@ -19,10 +20,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// Modelo temporal para manejar los archivos cargados
 data class DocumentoTemporal(val id: Int, val nombre: String, val uri: Uri?)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,7 +32,10 @@ fun VistaDocumentos() {
     val context = LocalContext.current
     var documentosGuardados by remember { mutableStateOf(listOf<DocumentoTemporal>()) }
 
-    // Lanzador del explorador de archivos nativo (PDF y Word)
+
+    var documentoAEditar by remember { mutableStateOf<DocumentoTemporal?>(null) }
+    var nuevoNombreDoc by remember { mutableStateOf("") }
+
     val selectorArchivos = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
@@ -42,7 +46,6 @@ fun VistaDocumentos() {
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
             } catch (e: Exception) {
-                // Manejo de excepción por permisos si aplica
             }
 
             val nuevoDoc = DocumentoTemporal(
@@ -70,7 +73,6 @@ fun VistaDocumentos() {
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Tarjeta superior elegante para la acción de carga
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -123,7 +125,6 @@ fun VistaDocumentos() {
                 }
             }
 
-            // Título de la lista
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -144,7 +145,6 @@ fun VistaDocumentos() {
                 )
             }
 
-            // Contenido dinámico (Lista o Estado Vacío)
             if (documentosGuardados.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -213,6 +213,17 @@ fun VistaDocumentos() {
                                     }
 
                                     IconButton(onClick = {
+                                        documentoAEditar = doc
+                                        nuevoNombreDoc = doc.nombre
+                                    }) {
+                                        Icon(
+                                            Icons.Default.Edit,
+                                            contentDescription = "Editar",
+                                            tint = Color(0xFF1976D2)
+                                        )
+                                    }
+
+                                    IconButton(onClick = {
                                         documentosGuardados = documentosGuardados.filter { it.id != doc.id }
                                         Toast.makeText(context, "Documento eliminado", Toast.LENGTH_SHORT).show()
                                     }) {
@@ -229,6 +240,46 @@ fun VistaDocumentos() {
                 }
             }
         }
+    }
+
+    // Modal para editar nombre del documento
+    documentoAEditar?.let { doc ->
+        AlertDialog(
+            onDismissRequest = { documentoAEditar = null },
+            title = { Text("Editar Documento") },
+            text = {
+                OutlinedTextField(
+                    value = nuevoNombreDoc,
+                    onValueChange = { nuevoNombreDoc = it },
+                    label = { Text("Nombre del archivo") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (nuevoNombreDoc.isNotBlank()) {
+                            documentosGuardados = documentosGuardados.map {
+                                if (it.id == doc.id) it.copy(nombre = nuevoNombreDoc) else it
+                            }
+                            Toast.makeText(context, "Documento actualizado", Toast.LENGTH_SHORT).show()
+                            documentoAEditar = null
+                        } else {
+                            Toast.makeText(context, "El nombre no puede estar vacío", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B5E20))
+                ) {
+                    Text("Guardar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { documentoAEditar = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 }
 
