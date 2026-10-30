@@ -280,8 +280,9 @@ fun VistaAdmin(
                                                         coroutineScope.launch(Dispatchers.IO) {
                                                             db.usuarioDao().eliminarUsuario(usuario)
                                                             withContext(Dispatchers.Main) {
-                                                                Toast.makeText(context, "Cuenta eliminada", Toast.LENGTH_SHORT).show()
+                                                                Toast.makeText(context, "Cuenta eliminada correctamente", Toast.LENGTH_SHORT).show()
                                                                 listaActivos = db.usuarioDao().obtenerTodosLosUsuarios().filter { it.cuentaActiva }
+                                                                listaPendientes = db.usuarioDao().obtenerUsuariosPendientes()
                                                             }
                                                         }
                                                     }
@@ -453,7 +454,7 @@ fun VistaAdmin(
         }
     }
 
-    // Modal EDITAR USUARIO CON MENÚ DESPLEGABLE DE ROL
+    // Modal EDITAR USUARIO CON AUTO-ACTIVACIÓN AL CAMBIAR ROL
     usuarioAEditar?.let { usuario ->
         var editNombre by remember { mutableStateOf(usuario.nombre) }
         var editApellido by remember { mutableStateOf(usuario.apellido) }
@@ -519,15 +520,17 @@ fun VistaAdmin(
                         if (usuariosPreview == null) {
                             val db = EsfocarDatabase.getDatabase(context)
                             coroutineScope.launch(Dispatchers.IO) {
+                                // CORREGIDO: Al editar desde el Admin la cuenta se marca como activa obligatoriamente
                                 val usuarioEditado = usuario.copy(
                                     nombre = editNombre,
                                     apellido = editApellido,
                                     correo = editCorreo,
-                                    rol = editRol
+                                    rol = editRol,
+                                    cuentaActiva = true
                                 )
                                 db.usuarioDao().actualizarUsuario(usuarioEditado)
                                 withContext(Dispatchers.Main) {
-                                    Toast.makeText(context, "Datos actualizados correctamente", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Datos y rol actualizados correctamente", Toast.LENGTH_SHORT).show()
                                     listaPendientes = db.usuarioDao().obtenerUsuariosPendientes()
                                     listaActivos = db.usuarioDao().obtenerTodosLosUsuarios().filter { it.cuentaActiva }
                                     usuarioAEditar = null
@@ -548,6 +551,7 @@ fun VistaAdmin(
         )
     }
 
+    // Modal EDITAR NOTA EN ROOM
     rubricaAEditar?.let { rubrica ->
         var nuevaNota by remember { mutableStateOf(rubrica.nota.toString()) }
 

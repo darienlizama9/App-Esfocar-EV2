@@ -127,14 +127,13 @@ fun VistaLogin(
 
                 cargando = true
                 coroutineScope.launch(Dispatchers.IO) {
-                    val usuario: Usuario? = db.usuarioDao().iniciarSesion(correo, contrasena)
+                    val usuario: Usuario? = db.usuarioDao().iniciarSesion(correo.trim(), contrasena.trim())
                     withContext(Dispatchers.Main) {
                         cargando = false
                         if (usuario != null) {
                             if (!usuario.cuentaActiva) {
-                                Toast.makeText(context, "Cuenta deshabilitada por el Administrador", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "Su cuenta está pendiente de aprobación por el Administrador", Toast.LENGTH_LONG).show()
                             } else {
-                                // Validamos si es Admin para mostrar el saludo formal correspondiente
                                 val esAdmin = usuario.rol.equals("Admin", ignoreCase = true) || usuario.rol.equals("Administrador", ignoreCase = true)
                                 val mensaje = if (esAdmin) "Bienvenido Administrador" else "Bienvenido/a ${usuario.nombre}"
 
