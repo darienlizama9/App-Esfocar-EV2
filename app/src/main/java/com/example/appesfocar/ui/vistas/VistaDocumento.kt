@@ -23,18 +23,37 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-data class DocumentoTemporal(val id: Int, val nombre: String, val uri: Uri?)
+import com.example.appesfocar.data.Documento
+import com.example.appesfocar.data.EsfocarDatabase
+import com.example.appesfocar.repository.EsfocarRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VistaDocumentos() {
     val context = LocalContext.current
-    var documentosGuardados by remember { mutableStateOf(listOf<DocumentoTemporal>()) }
+    val coroutineScope = rememberCoroutineScope()
+    val db = remember { EsfocarDatabase.getDatabase(context) }
+    val repository = remember { EsfocarRepository(db) }
 
-
-    var documentoAEditar by remember { mutableStateOf<DocumentoTemporal?>(null) }
+    var documentosGuardados by remember { mutableStateOf(listOf<Documento>()) }
+    var documentoAEditar by remember { mutableStateOf<Documento?>(null) }
     var nuevoNombreDoc by remember { mutableStateOf("") }
+
+    fun cargarDocumentos() {
+        coroutineScope.launch(Dispatchers.IO) {
+            val docs = repository.listarDocumentos()
+            withContext(Dispatchers.Main) {
+                documentosGuardados = docs
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        cargarDocumentos()
+    }
 
     val selectorArchivos = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -48,13 +67,18 @@ fun VistaDocumentos() {
             } catch (e: Exception) {
             }
 
-            val nuevoDoc = DocumentoTemporal(
-                id = documentosGuardados.size + 1,
-                nombre = "Documento_Oficial_${documentosGuardados.size + 1}.pdf",
-                uri = uri
+            val nuevoDoc = Documento(
+                nombreArchivo = "Documento_Oficial_${documentosGuardados.size + 1}.pdf",
+                rutaUri = uri.toString()
             )
-            documentosGuardados = documentosGuardados + nuevoDoc
-            Toast.makeText(context, "Documento cargado con éxito", Toast.LENGTH_SHORT).show()
+
+            coroutineScope.launch(Dispatchers.IO) {
+                repository.guardarDocumento(nuevoDoc)
+                cargarDocumentos()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Documento cargado con éxito", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 
@@ -180,20 +204,21 @@ fun VistaDocumentos() {
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = doc.nombre,
+                                        text = doc.nombreArchivo,
                                         fontWeight = FontWeight.SemiBold,
                                         color = Color.Black
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = "Archivo local adjunto",
+                                        text = "Archivo en repositorio",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = Color.Gray
                                     )
                                 }
                                 Row {
                                     IconButton(onClick = {
-                                        doc.uri?.let { uri ->
+                                        if (doc.rutaUri.isNotBlank()) {
+                                            val uri = Uri.parse(doc.rutaUri)
                                             val intent = Intent(Intent.ACTION_VIEW).apply {
                                                 setDataAndType(uri, "application/pdf")
                                                 flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
@@ -214,7 +239,7 @@ fun VistaDocumentos() {
 
                                     IconButton(onClick = {
                                         documentoAEditar = doc
-                                        nuevoNombreDoc = doc.nombre
+                                        nuevoNombreDoc = doc.nombreArchivo
                                     }) {
                                         Icon(
                                             Icons.Default.Edit,
@@ -224,8 +249,13 @@ fun VistaDocumentos() {
                                     }
 
                                     IconButton(onClick = {
-                                        documentosGuardados = documentosGuardados.filter { it.id != doc.id }
-                                        Toast.makeText(context, "Documento eliminado", Toast.LENGTH_SHORT).show()
+                                        coroutineScope.launch(Dispatchers.IO) {
+                                            repository.eliminarDocumento(doc)
+                                            cargarDocumentos()
+                                            withContext(Dispatchers.Main) {
+                                                Toast.makeText(context, "Documento eliminado", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
                                     }) {
                                         Icon(
                                             Icons.Default.Delete,
@@ -260,11 +290,15 @@ fun VistaDocumentos() {
                 Button(
                     onClick = {
                         if (nuevoNombreDoc.isNotBlank()) {
-                            documentosGuardados = documentosGuardados.map {
-                                if (it.id == doc.id) it.copy(nombre = nuevoNombreDoc) else it
+                            val docModificado = doc.copy(nombreArchivo = nuevoNombreDoc)
+                            coroutineScope.launch(Dispatchers.IO) {
+                                repository.editarDocumento(docModificado)
+                                cargarDocumentos()
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(context, "Documento actualizado", Toast.LENGTH_SHORT).show()
+                                    documentoAEditar = null
+                                }
                             }
-                            Toast.makeText(context, "Documento actualizado", Toast.LENGTH_SHORT).show()
-                            documentoAEditar = null
                         } else {
                             Toast.makeText(context, "El nombre no puede estar vacío", Toast.LENGTH_SHORT).show()
                         }

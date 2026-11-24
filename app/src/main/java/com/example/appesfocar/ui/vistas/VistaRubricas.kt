@@ -39,9 +39,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.appesfocar.data.EsfocarDatabase
 import com.example.appesfocar.data.Rubrica
+import com.example.appesfocar.repository.EsfocarRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,6 +53,7 @@ fun VistaRubricas() {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val db = remember { EsfocarDatabase.getDatabase(context) }
+    val repository = remember { EsfocarRepository(db) }
 
     var nombreAlumno by remember { mutableStateOf("") }
     var apellidoAlumno by remember { mutableStateOf("") }
@@ -68,7 +72,6 @@ fun VistaRubricas() {
 
     val scrollState = rememberScrollState()
 
-    //validar rut
     fun esRutValido(rut: String): Boolean {
         val regex = "^[0-9]{7,8}-[0-9kK]$".toRegex()
         return regex.matches(rut)
@@ -237,10 +240,12 @@ fun VistaRubricas() {
                         return@Button
                     }
 
-                    val promedio = (n1 + n2 + n3 + n4) / 4.0
-                    notaFinal = String.format(Locale.US, "%.2f", promedio)
+                    val promedioRaw = (n1 + n2 + n3 + n4) / 4.0
+                    val promedioExacto = BigDecimal(promedioRaw).setScale(2, RoundingMode.HALF_UP).toDouble()
+                    notaFinal = String.format(Locale.US, "%.2f", promedioExacto)
 
-                    if (promedio >= 4.0) {
+                    val estadoCalc = if (promedioExacto >= 4.0) "APROBADO" else "REPROBADO"
+                    if (promedioExacto >= 4.0) {
                         feedbackEstado = "ESTADO: APROBADO"
                         colorResultado = Color(0xFF1B5E20)
                     } else {
@@ -252,10 +257,17 @@ fun VistaRubricas() {
                         val nuevaRubrica = Rubrica(
                             titulo = "Evaluación Alumno: ${nombreAlumno.trim()} ${apellidoAlumno.trim()}",
                             tipo = "RUT: ${rutAlumno.trim()}",
-                            nota = promedio,
-                            feedback = comentarioProfesor.trim()
+                            nota = promedioExacto,
+                            feedback = comentarioProfesor.trim(),
+                            rutAlumno = rutAlumno.trim(),
+                            nombreAlumno = nombreAlumno.trim(),
+                            apellidoAlumno = apellidoAlumno.trim(),
+                            tituloRubrica = "Evaluación Práctica ESFOCAR",
+                            notaFinal = promedioExacto,
+                            estado = estadoCalc,
+                            feedbackDocente = comentarioProfesor.trim()
                         )
-                        db.rubricaDao().guardarRubrica(nuevaRubrica)
+                        repository.evaluarAlumno(nuevaRubrica)
                         withContext(Dispatchers.Main) {
                             Toast.makeText(context, "Calificación de $nombreAlumno registrada con éxito", Toast.LENGTH_SHORT).show()
                         }
