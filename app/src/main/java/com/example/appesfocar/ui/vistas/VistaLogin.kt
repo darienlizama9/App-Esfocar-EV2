@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import com.example.appesfocar.R
 import com.example.appesfocar.data.EsfocarDatabase
 import com.example.appesfocar.data.Usuario
+import com.example.appesfocar.repository.EsfocarRepository
 import com.example.appesfocar.ui.theme.AppEsfocarTheme
 import com.example.appesfocar.ui.theme.VerdeInstitucional
 import kotlinx.coroutines.Dispatchers
@@ -52,12 +53,13 @@ import kotlinx.coroutines.withContext
 
 @Composable
 fun VistaLogin(
-    onLoginExitoso: (rol: String, correo: String) -> Unit,
+    onLoginExitoso: (rol: String, correo: String, rut: String) -> Unit,
     onRegistrar: () -> Unit
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val db = remember { EsfocarDatabase.getDatabase(context) }
+    val repository = remember { EsfocarRepository(db) }
 
     var correo by remember { mutableStateOf("") }
     var contrasena by remember { mutableStateOf("") }
@@ -87,7 +89,7 @@ fun VistaLogin(
             color = VerdeInstitucional,
             fontWeight = FontWeight.Bold
         )
-        Text(text = "Docentes e Instructores", color = Color.Gray)
+        Text(text = "Docentes, Estudiantes e Instructores", color = Color.Gray)
 
         Spacer(modifier = Modifier.height(32.dp))
 
@@ -127,7 +129,7 @@ fun VistaLogin(
 
                 cargando = true
                 coroutineScope.launch(Dispatchers.IO) {
-                    val usuario: Usuario? = db.usuarioDao().iniciarSesion(correo.trim(), contrasena.trim())
+                    val usuario: Usuario? = repository.login(correo.trim(), contrasena.trim())
                     withContext(Dispatchers.Main) {
                         cargando = false
                         if (usuario != null) {
@@ -138,7 +140,7 @@ fun VistaLogin(
                                 val mensaje = if (esAdmin) "Bienvenido Administrador" else "Bienvenido/a ${usuario.nombre}"
 
                                 Toast.makeText(context, mensaje, Toast.LENGTH_SHORT).show()
-                                onLoginExitoso(usuario.rol, usuario.correo)
+                                onLoginExitoso(usuario.rol, usuario.correo, usuario.rut)
                             }
                         } else {
                             Toast.makeText(context, "Credenciales incorrectas", Toast.LENGTH_SHORT).show()
@@ -162,7 +164,7 @@ fun VistaLogin(
         Spacer(modifier = Modifier.height(16.dp))
 
         TextButton(onClick = onRegistrar) {
-            Text("¿Nuevo instructor? Regístrate aquí", color = VerdeInstitucional)
+            Text("¿Nuevo usuario? Regístrate aquí", color = VerdeInstitucional)
         }
     }
 }
@@ -171,6 +173,6 @@ fun VistaLogin(
 @Composable
 fun PreviewLogin() {
     AppEsfocarTheme {
-        VistaLogin(onLoginExitoso = { _, _ -> }, onRegistrar = {})
+        VistaLogin(onLoginExitoso = { _, _, _ -> }, onRegistrar = {})
     }
 }

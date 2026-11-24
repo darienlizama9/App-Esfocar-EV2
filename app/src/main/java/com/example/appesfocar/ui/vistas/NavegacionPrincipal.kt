@@ -50,6 +50,8 @@ import kotlinx.coroutines.withContext
 
 object SesionUsuario {
     var correoActual: String = ""
+    var rutActual: String = ""
+    var rolActual: String = ""
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -59,7 +61,7 @@ fun NavegacionPrincipal() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
 
-    val mostrarBarraInferior = rutaActual in listOf("ruta_rubricas", "ruta_documentos") || rutaActual?.startsWith("ruta_perfil") == true
+    val mostrarBarraInferior = (rutaActual in listOf("ruta_rubricas", "ruta_documentos") || rutaActual?.startsWith("ruta_perfil") == true) && SesionUsuario.rolActual != "Estudiante"
 
     Scaffold(
         bottomBar = {
@@ -107,12 +109,17 @@ fun NavegacionPrincipal() {
 
             composable("login") {
                 VistaLogin(
-                    onLoginExitoso = { rol, correoUsuario ->
-                        // Guardamos el correo en el objeto global al iniciar sesión
+                    onLoginExitoso = { rol, correoUsuario, rutUsuario ->
                         SesionUsuario.correoActual = correoUsuario
+                        SesionUsuario.rutActual = rutUsuario
+                        SesionUsuario.rolActual = rol
 
                         if (rol.equals("Admin", ignoreCase = true) || rol.equals("Administrador", ignoreCase = true)) {
                             navController.navigate("admin") {
+                                popUpTo("login") { inclusive = true }
+                            }
+                        } else if (rol.equals("Estudiante", ignoreCase = true)) {
+                            navController.navigate("estudiante") {
                                 popUpTo("login") { inclusive = true }
                             }
                         } else {
@@ -139,7 +146,24 @@ fun NavegacionPrincipal() {
             composable("admin") {
                 VistaAdmin(
                     onCerrarSesion = {
-                        SesionUsuario.correoActual = "" // Limpiamos la sesión al salir
+                        SesionUsuario.correoActual = ""
+                        SesionUsuario.rutActual = ""
+                        SesionUsuario.rolActual = ""
+                        navController.navigate("bienvenida") {
+                            popUpTo(0)
+                        }
+                    }
+                )
+            }
+
+            composable("estudiante") {
+                VistaEstudiante(
+                    rutEstudiante = SesionUsuario.rutActual,
+                    correoEstudiante = SesionUsuario.correoActual,
+                    onCerrarSesion = {
+                        SesionUsuario.correoActual = ""
+                        SesionUsuario.rutActual = ""
+                        SesionUsuario.rolActual = ""
                         navController.navigate("bienvenida") {
                             popUpTo(0)
                         }
@@ -175,6 +199,7 @@ fun VistaPerfil(navController: NavHostController, correo: String) {
     var correoInstitucional by remember { mutableStateOf(correo) }
     var rolUsuario by remember { mutableStateOf("Docente") }
     var estadoCuenta by remember { mutableStateOf("Autorizada") }
+    var rutUsuario by remember { mutableStateOf("") }
 
     LaunchedEffect(correo) {
         val correoAUsar = if (correo.isNotBlank()) correo else SesionUsuario.correoActual
@@ -188,6 +213,7 @@ fun VistaPerfil(navController: NavHostController, correo: String) {
                         correoInstitucional = usuarioEncontrado.correo
                         rolUsuario = usuarioEncontrado.rol
                         estadoCuenta = if (usuarioEncontrado.cuentaActiva) "Autorizada" else "Pendiente"
+                        rutUsuario = usuarioEncontrado.rut
                     }
                 }
             }
@@ -238,6 +264,9 @@ fun VistaPerfil(navController: NavHostController, correo: String) {
                         HorizontalDivider()
 
                         DatoPerfil(titulo = "Nombre completo:", valor = "$nombre $apellido")
+                        if (rutUsuario.isNotBlank()) {
+                            DatoPerfil(titulo = "RUT:", valor = rutUsuario)
+                        }
                         DatoPerfil(titulo = "Correo:", valor = correoInstitucional)
                         DatoPerfil(titulo = "Rol asignado:", valor = rolUsuario)
                         DatoPerfil(titulo = "Estado de cuenta:", valor = estadoCuenta)
@@ -247,7 +276,9 @@ fun VistaPerfil(navController: NavHostController, correo: String) {
 
             Button(
                 onClick = {
-                    SesionUsuario.correoActual = "" // Limpiar sesión al cerrar
+                    SesionUsuario.correoActual = ""
+                    SesionUsuario.rutActual = ""
+                    SesionUsuario.rolActual = ""
                     navController.navigate("bienvenida") {
                         popUpTo(0)
                     }

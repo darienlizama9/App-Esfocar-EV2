@@ -1,19 +1,23 @@
 package com.example.appesfocar.ui.vistas
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Visibility
@@ -24,6 +28,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -53,6 +59,7 @@ import androidx.compose.ui.unit.sp
 import com.example.appesfocar.R
 import com.example.appesfocar.data.EsfocarDatabase
 import com.example.appesfocar.data.Usuario
+import com.example.appesfocar.repository.EsfocarRepository
 import com.example.appesfocar.ui.theme.AppEsfocarTheme
 import com.example.appesfocar.ui.theme.VerdeInstitucional
 import kotlinx.coroutines.Dispatchers
@@ -72,6 +79,7 @@ fun VistaRegistro(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val db = remember { EsfocarDatabase.getDatabase(context) }
+    val repository = remember { EsfocarRepository(db) }
 
     var nombre by remember { mutableStateOf("") }
     var apellido by remember { mutableStateOf("") }
@@ -79,6 +87,8 @@ fun VistaRegistro(
     var correo by remember { mutableStateOf("") }
     var contrasena by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var rolSeleccionado by remember { mutableStateOf("Docente") }
+    var rut by remember { mutableStateOf("") }
     var cargando by remember { mutableStateOf(false) }
 
     var mostrarDatePicker by remember { mutableStateOf(false) }
@@ -86,6 +96,11 @@ fun VistaRegistro(
 
     fun esCorreoValido(email: String): Boolean {
         return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
+    }
+
+    fun esRutValido(rutInput: String): Boolean {
+        val regex = "^[0-9]{7,8}-[0-9kK]$".toRegex()
+        return regex.matches(rutInput)
     }
 
     if (mostrarDatePicker) {
@@ -117,6 +132,7 @@ fun VistaRegistro(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .verticalScroll(rememberScrollState())
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -124,20 +140,49 @@ fun VistaRegistro(
         Image(
             painter = painterResource(id = R.drawable.logo_esfocar),
             contentDescription = "Logo oficial ESFOCAR",
-            modifier = Modifier.fillMaxWidth(0.8f),
+            modifier = Modifier.fillMaxWidth(0.7f),
             contentScale = ContentScale.Fit
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = "Registro de Instructor",
+            text = "Registro de Usuario",
             style = MaterialTheme.typography.headlineSmall,
             color = VerdeInstitucional,
             fontWeight = FontWeight.Bold
         )
 
         Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Seleccione su perfil:",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            FilterChip(
+                selected = rolSeleccionado == "Docente",
+                onClick = { rolSeleccionado = "Docente" },
+                label = { Text("Docente") },
+                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = VerdeInstitucional, selectedLabelColor = Color.White)
+            )
+            FilterChip(
+                selected = rolSeleccionado == "Estudiante",
+                onClick = { rolSeleccionado = "Estudiante" },
+                label = { Text("Estudiante") },
+                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = VerdeInstitucional, selectedLabelColor = Color.White)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         OutlinedTextField(
             value = nombre,
@@ -159,7 +204,16 @@ fun VistaRegistro(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Campo Fecha que abre el Calendario M3
+        AnimatedVisibility(visible = rolSeleccionado == "Estudiante") {
+            OutlinedTextField(
+                value = rut,
+                onValueChange = { rut = it },
+                label = { Text("RUT (Ej: 12345678-9)") },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                singleLine = true
+            )
+        }
+
         Box(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = fechaNacimiento,
@@ -188,7 +242,7 @@ fun VistaRegistro(
         OutlinedTextField(
             value = correo,
             onValueChange = { correo = it },
-            label = { Text("Correo (ej: usuario@gmail.com)") },
+            label = { Text("Correo (ej: usuario@esfocar.cl)") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
@@ -221,6 +275,11 @@ fun VistaRegistro(
                     return@Button
                 }
 
+                if (rolSeleccionado == "Estudiante" && !esRutValido(rut.trim())) {
+                    Toast.makeText(context, "El RUT ingresado no es válido (Ej: 12345678-9)", Toast.LENGTH_LONG).show()
+                    return@Button
+                }
+
                 if (!esCorreoValido(correo.trim())) {
                     Toast.makeText(context, "Por favor ingresa un correo electrónico válido", Toast.LENGTH_LONG).show()
                     return@Button
@@ -248,10 +307,11 @@ fun VistaRegistro(
                         fechaNacimiento = fechaNacimiento.trim(),
                         correo = correo.trim(),
                         contrasena = contrasena,
-                        rol = "Docente",
-                        cuentaActiva = false
+                        rol = rolSeleccionado,
+                        cuentaActiva = false,
+                        rut = rut.trim()
                     )
-                    db.usuarioDao().registrarUsuario(nuevoUsuario)
+                    repository.registro(nuevoUsuario)
                     withContext(Dispatchers.Main) {
                         cargando = false
                         Toast.makeText(
