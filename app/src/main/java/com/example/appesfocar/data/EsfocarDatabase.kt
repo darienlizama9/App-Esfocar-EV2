@@ -6,11 +6,12 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import kotlinx.coroutines.launch
 
-@Database(entities = [Usuario::class, Rubrica::class], version = 2, exportSchema = false)
+@Database(entities = [Usuario::class, Rubrica::class, Documento::class], version = 3, exportSchema = false)
 abstract class EsfocarDatabase : RoomDatabase() {
 
     abstract fun usuarioDao(): UsuarioDao
     abstract fun rubricaDao(): RubricaDao
+    abstract fun documentoDao(): DocumentoDao
 
     companion object {
         @Volatile
@@ -35,13 +36,13 @@ abstract class EsfocarDatabase : RoomDatabase() {
                                     correo = "admin@esfocar.cl",
                                     contrasena = "123456",
                                     rol = "Admin",
-                                    cuentaActiva = true
+                                    cuentaActiva = true,
+                                    rut = "11111111-1"
                                 )
                                 INSTANCE?.usuarioDao()?.registrarUsuario(adminPorDefecto)
                             }
                         }
                     })
-
                     .build()
 
                 INSTANCE = instance

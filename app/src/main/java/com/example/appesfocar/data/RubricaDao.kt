@@ -16,6 +16,9 @@ interface RubricaDao {
     @Query("SELECT * FROM rubricas")
     suspend fun obtenerTodasLasRubricas(): List<Rubrica>
 
+    @Query("SELECT * FROM rubricas WHERE rutAlumno = :rut OR tipo LIKE '%' || :rut || '%'")
+    suspend fun obtenerRubricasPorRut(rut: String): List<Rubrica>
+
     @Update
     suspend fun actualizarRubrica(rubrica: Rubrica)
 

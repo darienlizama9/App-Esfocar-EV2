@@ -17,5 +17,6 @@ data class Usuario(
     val correo: String,
     val contrasena: String,
     val rol: String = "Docente",
-    val cuentaActiva: Boolean = false
+    val cuentaActiva: Boolean = false,
+    val rut: String = ""
 )
