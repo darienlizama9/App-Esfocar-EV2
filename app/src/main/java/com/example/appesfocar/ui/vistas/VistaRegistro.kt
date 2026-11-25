@@ -13,9 +13,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -45,11 +47,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -78,6 +85,10 @@ fun VistaRegistro(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val scrollState = rememberScrollState()
+
     val db = remember { EsfocarDatabase.getDatabase(context) }
     val repository = remember { EsfocarRepository(db) }
 
@@ -132,7 +143,8 @@ fun VistaRegistro(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
+            .imePadding()
+            .verticalScroll(scrollState)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -170,15 +182,29 @@ fun VistaRegistro(
         ) {
             FilterChip(
                 selected = rolSeleccionado == "Docente",
-                onClick = { rolSeleccionado = "Docente" },
+                onClick = {
+                    rolSeleccionado = "Docente"
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                },
                 label = { Text("Docente") },
-                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = VerdeInstitucional, selectedLabelColor = Color.White)
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = VerdeInstitucional,
+                    selectedLabelColor = Color.White
+                )
             )
             FilterChip(
                 selected = rolSeleccionado == "Estudiante",
-                onClick = { rolSeleccionado = "Estudiante" },
+                onClick = {
+                    rolSeleccionado = "Estudiante"
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                },
                 label = { Text("Estudiante") },
-                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = VerdeInstitucional, selectedLabelColor = Color.White)
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = VerdeInstitucional,
+                    selectedLabelColor = Color.White
+                )
             )
         }
 
@@ -189,7 +215,14 @@ fun VistaRegistro(
             onValueChange = { nombre = it },
             label = { Text("Nombre") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Words,
+                imeAction = ImeAction.Next
+            ),
+            keyboardActions = KeyboardActions(
+                onNext = { focusManager.moveFocus(FocusDirection.Down) }
+            )
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -199,7 +232,18 @@ fun VistaRegistro(
             onValueChange = { apellido = it },
             label = { Text("Apellido") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Words,
+                imeAction = if (rolSeleccionado == "Estudiante") ImeAction.Next else ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(
+                onNext = { focusManager.moveFocus(FocusDirection.Down) },
+                onDone = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                }
+            )
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -209,8 +253,20 @@ fun VistaRegistro(
                 value = rut,
                 onValueChange = { rut = it },
                 label = { Text("RUT (Ej: 12345678-9)") },
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                singleLine = true
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    }
+                )
             )
         }
 
@@ -224,7 +280,11 @@ fun VistaRegistro(
                     Icon(
                         imageVector = Icons.Default.DateRange,
                         contentDescription = "Seleccionar fecha",
-                        modifier = Modifier.clickable { mostrarDatePicker = true }
+                        modifier = Modifier.clickable {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                            mostrarDatePicker = true
+                        }
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -233,7 +293,11 @@ fun VistaRegistro(
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .clickable { mostrarDatePicker = true }
+                    .clickable {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                        mostrarDatePicker = true
+                    }
             )
         }
 
@@ -245,7 +309,13 @@ fun VistaRegistro(
             label = { Text("Correo (ej: usuario@esfocar.cl)") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Email,
+                imeAction = ImeAction.Next
+            ),
+            keyboardActions = KeyboardActions(
+                onNext = { focusManager.moveFocus(FocusDirection.Down) }
+            )
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -257,7 +327,16 @@ fun VistaRegistro(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(
+                onDone = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                }
+            ),
             trailingIcon = {
                 val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -270,6 +349,9 @@ fun VistaRegistro(
 
         Button(
             onClick = {
+                focusManager.clearFocus()
+                keyboardController?.hide()
+
                 if (nombre.isBlank() || apellido.isBlank() || fechaNacimiento.isBlank() || correo.isBlank() || contrasena.isBlank()) {
                     Toast.makeText(context, "Por favor completa todos los campos", Toast.LENGTH_SHORT).show()
                     return@Button
@@ -338,7 +420,11 @@ fun VistaRegistro(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        TextButton(onClick = onVolverLogin) {
+        TextButton(onClick = {
+            focusManager.clearFocus()
+            keyboardController?.hide()
+            onVolverLogin()
+        }) {
             Text("¿Ya tienes cuenta? Inicia sesión aquí", color = VerdeInstitucional)
         }
     }
