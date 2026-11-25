@@ -10,13 +10,12 @@ import androidx.room.Update
 @Dao
 interface UsuarioDao {
 
-    @Insert(onConflict = OnConflictStrategy.ABORT)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun registrarUsuario(usuario: Usuario)
 
     @Query("SELECT * FROM usuarios WHERE correo = :correo AND contrasena = :contrasena LIMIT 1")
     suspend fun iniciarSesion(correo: String, contrasena: String): Usuario?
 
-    // CORREGIDO: Trae TODAS las solicitudes inactivas independientemente del rol
     @Query("SELECT * FROM usuarios WHERE cuentaActiva = 0")
     suspend fun obtenerUsuariosPendientes(): List<Usuario>
 
