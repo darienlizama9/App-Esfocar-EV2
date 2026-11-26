@@ -20,7 +20,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.CheckCircle
@@ -38,6 +40,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -53,7 +56,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -74,6 +79,37 @@ private data class AsignaturaConEvaluaciones(
     val evaluaciones: List<Rubrica>
 )
 
+private val evaluacionesDemoPreview = listOf(
+    Rubrica(
+        id = 1,
+        titulo = "Orden Cerrado y Doctrina",
+        tipo = "Puntaje: 15/16 pts",
+        nota = 6.6,
+        feedback = "Excelente postura y dominio de movimientos.",
+        rutAlumno = "12345678-9",
+        nombreAlumno = "Juan",
+        apellidoAlumno = "Pérez",
+        tituloRubrica = "Orden Cerrado y Doctrina",
+        notaFinal = 6.6,
+        estado = "APROBADO",
+        feedbackDocente = "Excelente postura y dominio de movimientos."
+    ),
+    Rubrica(
+        id = 2,
+        titulo = "Procedimientos Policiales",
+        tipo = "Puntaje: 13/16 pts",
+        nota = 5.6,
+        feedback = "Buen manejo de protocolos, reforzar tiempos de respuesta.",
+        rutAlumno = "12345678-9",
+        nombreAlumno = "Juan",
+        apellidoAlumno = "Pérez",
+        tituloRubrica = "Procedimientos Policiales",
+        notaFinal = 5.6,
+        estado = "APROBADO",
+        feedbackDocente = "Buen manejo de protocolos, reforzar tiempos de respuesta."
+    )
+)
+
 @Composable
 fun VistaNotasEstudiante(
     rutEstudiante: String,
@@ -81,22 +117,25 @@ fun VistaNotasEstudiante(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val enPreview = LocalInspectionMode.current
 
-    var listaEvaluaciones by remember { mutableStateOf(evaluacionesPreview ?: emptyList()) }
+    val datosIniciales = evaluacionesPreview ?: if (enPreview) evaluacionesDemoPreview else emptyList()
+
+    var listaEvaluaciones by remember { mutableStateOf(datosIniciales) }
     var docentesRegistrados by remember {
         mutableStateOf(
-            if (evaluacionesPreview != null) {
+            if (evaluacionesPreview != null || enPreview) {
                 listOf("Instr. Carlos Mendoza", "Prof. Elena Rojas")
             } else {
                 emptyList()
             }
         )
     }
-    var cargando by remember { mutableStateOf(evaluacionesPreview == null) }
+    var cargando by remember { mutableStateOf(evaluacionesPreview == null && !enPreview) }
     var filtroEstado by remember { mutableStateOf("TODAS") }
 
     fun cargarNotasYDocentes() {
-        if (evaluacionesPreview != null) return
+        if (evaluacionesPreview != null || enPreview) return
         val db = EsfocarDatabase.getDatabase(context)
         val repository = EsfocarRepository(db)
 
@@ -130,7 +169,7 @@ fun VistaNotasEstudiante(
     }
 
     LaunchedEffect(rutEstudiante) {
-        if (evaluacionesPreview == null) {
+        if (evaluacionesPreview == null && !enPreview) {
             cargarNotasYDocentes()
         }
     }
@@ -339,15 +378,108 @@ fun VistaNotasEstudiante(
                 CircularProgressIndicator(color = Color(0xFF1B5E20))
             }
         } else if (asignaturasAgrupadas.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    text = if (listaEvaluaciones.isEmpty()) {
-                        "No tienes asignaturas evaluadas para tu RUT ($rutEstudiante)."
-                    } else {
-                        "No hay evaluaciones en esta categoría."
-                    },
-                    color = Color.Gray
-                )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(top = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(18.dp),
+                            color = Color(0xFFE8F5E9)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MenuBook,
+                                contentDescription = null,
+                                tint = Color(0xFF1B5E20),
+                                modifier = Modifier.padding(16.dp).size(36.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Text(
+                            text = if (listaEvaluaciones.isEmpty()) {
+                                "Aún no tienes evaluaciones publicadas"
+                            } else {
+                                "Sin asignaturas en este filtro"
+                            },
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp,
+                            color = Color(0xFF1B5E20),
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Text(
+                            text = if (listaEvaluaciones.isEmpty()) {
+                                "Cuando tu docente o instructor evalúe tu rúbrica asociada al RUT ${rutEstudiante.ifBlank { "registrado" }}, tus asignaturas, notas y retroalimentación aparecerán aquí."
+                            } else {
+                                "No se encontraron evaluaciones bajo la categoría seleccionada."
+                            },
+                            fontSize = 13.sp,
+                            color = Color.Gray,
+                            lineHeight = 18.sp,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        OutlinedButton(
+                            onClick = { cargarNotasYDocentes() },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                tint = Color(0xFF1B5E20),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Sincronizar Calificaciones",
+                                color = Color(0xFF1B5E20),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F8E9))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "ESCALA EVALUATIVA ESFOCAR",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1B5E20)
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "• Nota mínima de aprobación: 4.00 (60% exigencia)\n• Niveles: Logrado (4 pts), Med. Logrado (3 pts), Por Lograr (2 pts), No Logrado (1 pt)",
+                            fontSize = 12.sp,
+                            color = Color.DarkGray,
+                            lineHeight = 17.sp
+                        )
+                    }
+                }
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -528,40 +660,10 @@ private fun TarjetaAsignaturaEstudiante(asignatura: AsignaturaConEvaluaciones) {
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun PreviewVistaNotasEstudiante() {
-    val datosDemo = listOf(
-        Rubrica(
-            id = 1,
-            titulo = "Orden Cerrado y Doctrina",
-            tipo = "Práctica",
-            nota = 6.5,
-            feedback = "Excelente postura y dominio de movimientos.",
-            rutAlumno = "12345678-9",
-            nombreAlumno = "Juan",
-            apellidoAlumno = "Pérez",
-            tituloRubrica = "Orden Cerrado y Doctrina",
-            notaFinal = 6.5,
-            estado = "APROBADO",
-            feedbackDocente = "Excelente postura y dominio de movimientos."
-        ),
-        Rubrica(
-            id = 2,
-            titulo = "Procedimientos Policiales",
-            tipo = "Teórico-Práctico",
-            nota = 5.8,
-            feedback = "Buen manejo de protocolos, reforzar tiempos de respuesta.",
-            rutAlumno = "12345678-9",
-            nombreAlumno = "Juan",
-            apellidoAlumno = "Pérez",
-            tituloRubrica = "Procedimientos Policiales",
-            notaFinal = 5.8,
-            estado = "APROBADO",
-            feedbackDocente = "Buen manejo de protocolos, reforzar tiempos de respuesta."
-        )
-    )
     AppEsfocarTheme {
         VistaNotasEstudiante(
             rutEstudiante = "12345678-9",
-            evaluacionesPreview = datosDemo
+            evaluacionesPreview = evaluacionesDemoPreview
         )
     }
 }
