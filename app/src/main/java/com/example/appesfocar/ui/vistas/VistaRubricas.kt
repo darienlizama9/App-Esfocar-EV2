@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,6 +25,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -74,9 +77,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -424,6 +432,8 @@ private fun FormularioEvaluacionNiveles(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     var plantillaSeleccionada by remember(plantillas) { mutableStateOf(plantillas.first()) }
     var menuPlantillaExpandido by remember { mutableStateOf(false) }
@@ -490,6 +500,7 @@ private fun FormularioEvaluacionNiveles(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .imePadding()
             .verticalScroll(scrollState)
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -571,7 +582,11 @@ private fun FormularioEvaluacionNiveles(
 
                 ExposedDropdownMenuBox(
                     expanded = menuPlantillaExpandido,
-                    onExpandedChange = { menuPlantillaExpandido = it },
+                    onExpandedChange = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                        menuPlantillaExpandido = it
+                    },
                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
                 ) {
                     OutlinedTextField(
@@ -627,6 +642,16 @@ private fun FormularioEvaluacionNiveles(
                                 expanded = menuEstudiantesExpandido && sugerenciasEstudiantes.isNotEmpty()
                             )
                         },
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Words,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = {
+                                menuEstudiantesExpandido = false
+                                focusManager.moveFocus(FocusDirection.Down)
+                            }
+                        ),
                         modifier = Modifier
                             .menuAnchor(MenuAnchorType.PrimaryEditable, enabled = true)
                             .fillMaxWidth(),
@@ -650,6 +675,8 @@ private fun FormularioEvaluacionNiveles(
                                     apellidoAlumno = alumno.apellido
                                     if (alumno.rut.isNotBlank()) rutAlumno = alumno.rut
                                     menuEstudiantesExpandido = false
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
                                 }
                             )
                         }
@@ -662,14 +689,30 @@ private fun FormularioEvaluacionNiveles(
                         onValueChange = { apellidoAlumno = it },
                         label = { Text("Apellido") },
                         modifier = Modifier.weight(1f),
-                        singleLine = true
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Words,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { focusManager.moveFocus(FocusDirection.Right) }
+                        )
                     )
                     OutlinedTextField(
                         value = rutAlumno,
                         onValueChange = { rutAlumno = it },
                         label = { Text("RUT (12345678-9)") },
                         modifier = Modifier.weight(1f),
-                        singleLine = true
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
+                            }
+                        )
                     )
                 }
             }
@@ -736,6 +779,8 @@ private fun FormularioEvaluacionNiveles(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clickable {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
                                         if (index < seleccionesNiveles.size) {
                                             seleccionesNiveles[index] = nivel
                                         }
@@ -838,7 +883,17 @@ private fun FormularioEvaluacionNiveles(
                     label = { Text("Retroalimentación / Observaciones del Instructor") },
                     placeholder = { Text("Detalle fortalezas y aspectos a mejorar...") },
                     modifier = Modifier.fillMaxWidth().height(100.dp),
-                    maxLines = 4
+                    maxLines = 4,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                        }
+                    )
                 )
             }
         }
@@ -846,6 +901,9 @@ private fun FormularioEvaluacionNiveles(
         Button(
             enabled = !enviando,
             onClick = {
+                focusManager.clearFocus()
+                keyboardController?.hide()
+
                 if (nombreAlumno.isBlank() || apellidoAlumno.isBlank() || rutAlumno.isBlank() || comentarioProfesor.isBlank()) {
                     Toast.makeText(context, "Completa los datos del alumno y la retroalimentación", Toast.LENGTH_LONG).show()
                     return@Button
@@ -1151,6 +1209,9 @@ private fun ModalFormularioPlantilla(
     onGuardar: (String, String, List<CriterioRubrica>) -> Unit
 ) {
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
     var titulo by remember { mutableStateOf(plantillaInicial?.titulo ?: "") }
     var descripcion by remember { mutableStateOf(plantillaInicial?.descripcion ?: "") }
     var c1 by remember { mutableStateOf(plantillaInicial?.criterios?.getOrNull(0)?.nombre ?: "") }
@@ -1163,7 +1224,9 @@ private fun ModalFormularioPlantilla(
         title = { Text(tituloModal, fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20)) },
         text = {
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
+                modifier = Modifier
+                    .imePadding()
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedTextField(
@@ -1171,26 +1234,73 @@ private fun ModalFormularioPlantilla(
                     onValueChange = { titulo = it },
                     label = { Text("Nombre de la Rúbrica / Asignatura") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
                 )
                 OutlinedTextField(
                     value = descripcion,
                     onValueChange = { descripcion = it },
                     label = { Text("Descripción breve") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
                 )
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                 Text("Criterios (cada uno vale 1 a 4 pts):", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                OutlinedTextField(value = c1, onValueChange = { c1 = it }, label = { Text("Criterio 1") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = c2, onValueChange = { c2 = it }, label = { Text("Criterio 2") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = c3, onValueChange = { c3 = it }, label = { Text("Criterio 3") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = c4, onValueChange = { c4 = it }, label = { Text("Criterio 4") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(
+                    value = c1,
+                    onValueChange = { c1 = it },
+                    label = { Text("Criterio 1") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
+                )
+                OutlinedTextField(
+                    value = c2,
+                    onValueChange = { c2 = it },
+                    label = { Text("Criterio 2") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
+                )
+                OutlinedTextField(
+                    value = c3,
+                    onValueChange = { c3 = it },
+                    label = { Text("Criterio 3") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
+                )
+                OutlinedTextField(
+                    value = c4,
+                    onValueChange = { c4 = it },
+                    label = { Text("Criterio 4") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    })
+                )
             }
         },
         confirmButton = {
             Button(
                 onClick = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
                     val listaCriterios = listOf(c1, c2, c3, c4)
                         .map { it.trim() }
                         .filter { it.isNotBlank() }
@@ -1219,7 +1329,11 @@ private fun ModalFormularioPlantilla(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancelar") }
+            TextButton(onClick = {
+                focusManager.clearFocus()
+                keyboardController?.hide()
+                onDismiss()
+            }) { Text("Cancelar") }
         }
     )
 }
@@ -1231,6 +1345,8 @@ private fun ListaHistorialEvaluaciones(
     onRefrescar: () -> Unit
 ) {
     var filtroBusqueda by remember { mutableStateOf("") }
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     val filtradas = remember(evaluaciones, filtroBusqueda) {
         if (filtroBusqueda.isBlank()) {
@@ -1262,10 +1378,19 @@ private fun ListaHistorialEvaluaciones(
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 modifier = Modifier.weight(1f),
                 singleLine = true,
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                })
             )
             OutlinedButton(
-                onClick = onRefrescar,
+                onClick = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                    onRefrescar()
+                },
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text("Actualizar")
