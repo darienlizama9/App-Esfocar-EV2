@@ -1,5 +1,6 @@
 package com.example.appesfocar.ui.vistas
 
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -67,6 +68,7 @@ import com.example.appesfocar.data.Rubrica
 import com.example.appesfocar.network.RetrofitClient
 import com.example.appesfocar.repository.EsfocarRepository
 import com.example.appesfocar.ui.theme.AppEsfocarTheme
+import com.example.appesfocar.util.normalizarRut
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -134,15 +136,16 @@ fun VistaNotasEstudiante(
     var cargando by remember { mutableStateOf(evaluacionesPreview == null && !enPreview) }
     var filtroEstado by remember { mutableStateOf("TODAS") }
 
-    fun cargarNotasYDocentes() {
+    fun cargarNotasYDocentes(mostrarToast: Boolean = false) {
         if (evaluacionesPreview != null || enPreview) return
         val db = EsfocarDatabase.getDatabase(context)
         val repository = EsfocarRepository(db)
+        val rutNorm = normalizarRut(rutEstudiante)
 
         coroutineScope.launch(Dispatchers.IO) {
             withContext(Dispatchers.Main) { cargando = true }
 
-            val evaluaciones = repository.obtenerEvaluacionesPorRut(rutEstudiante)
+            val evaluaciones = repository.obtenerEvaluacionesPorRut(rutNorm)
             val docentes = try {
                 val resp = RetrofitClient.apiService.obtenerUsuarios()
                 val usuarios = if (resp.isSuccessful && resp.body() != null) {
@@ -164,6 +167,9 @@ fun VistaNotasEstudiante(
                 listaEvaluaciones = evaluaciones
                 docentesRegistrados = docentes
                 cargando = false
+                if (mostrarToast) {
+                    Toast.makeText(context, "Calificaciones sincronizadas (${evaluaciones.size} encontradas)", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -278,7 +284,7 @@ fun VistaNotasEstudiante(
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { cargarNotasYDocentes() }) {
+                            IconButton(onClick = { cargarNotasYDocentes(mostrarToast = true) }) {
                                 Icon(Icons.Default.Refresh, contentDescription = "Actualizar", tint = Color.White)
                             }
                             Surface(
@@ -440,7 +446,7 @@ fun VistaNotasEstudiante(
                         Spacer(modifier = Modifier.height(16.dp))
 
                         OutlinedButton(
-                            onClick = { cargarNotasYDocentes() },
+                            onClick = { cargarNotasYDocentes(mostrarToast = true) },
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Icon(

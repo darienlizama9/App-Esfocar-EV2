@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.appesfocar.data.EsfocarDatabase
+import com.example.appesfocar.util.normalizarRut
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -44,17 +45,17 @@ fun VistaPerfilEstudiante(
     val db = remember { EsfocarDatabase.getDatabase(context) }
 
     var nombreCompleto by remember { mutableStateOf("Cargando...") }
-    var rutUsuario by remember { mutableStateOf(rutEstudiante) }
+    var rutUsuario by remember { mutableStateOf(normalizarRut(rutEstudiante)) }
 
     LaunchedEffect(correoEstudiante) {
         if (correoEstudiante.isNotBlank()) {
             withContext(Dispatchers.IO) {
-                val usuario = db.usuarioDao().obtenerUsuarioPorCorreo(correoEstudiante)
+                val usuario = db.usuarioDao().obtenerUsuarioPorCorreo(correoEstudiante.trim())
                 if (usuario != null) {
                     withContext(Dispatchers.Main) {
                         nombreCompleto = "${usuario.nombre} ${usuario.apellido}"
                         if (usuario.rut.isNotBlank()) {
-                            rutUsuario = usuario.rut
+                            rutUsuario = normalizarRut(usuario.rut)
                         }
                     }
                 }
@@ -97,7 +98,7 @@ fun VistaPerfilEstudiante(
                     HorizontalDivider()
 
                     ItemPerfilEstudiante("Nombre:", nombreCompleto)
-                    ItemPerfilEstudiante("RUT:", rutUsuario)
+                    ItemPerfilEstudiante("RUT:", rutUsuario.ifBlank { "Sin RUT" })
                     ItemPerfilEstudiante("Correo Institucional:", correoEstudiante)
                     ItemPerfilEstudiante("Rol:", "Estudiante")
                 }

@@ -6,6 +6,9 @@ import com.example.appesfocar.data.Rubrica
 import com.example.appesfocar.data.Usuario
 import com.example.appesfocar.network.EsfocarApiService
 import com.example.appesfocar.network.RetrofitClient
+import com.example.appesfocar.network.toEvaluacionAlumnoDto
+import com.example.appesfocar.network.toRubrica
+import com.example.appesfocar.util.normalizarRut
 
 class EsfocarRepository(
     private val db: EsfocarDatabase,
@@ -15,8 +18,8 @@ class EsfocarRepository(
         return try {
             val response = apiService.login(
                 Usuario(
-                    correo = correo,
-                    contrasena = contrasena,
+                    correo = correo.trim(),
+                    contrasena = contrasena.trim(),
                     nombre = "",
                     apellido = "",
                     fechaNacimiento = ""
@@ -24,30 +27,36 @@ class EsfocarRepository(
             )
             if (response.isSuccessful && response.body() != null) {
                 val usuarioRemoto = response.body()!!
-                db.usuarioDao().registrarUsuario(usuarioRemoto)
-                usuarioRemoto
+                val usuarioConRut = usuarioRemoto.copy(rut = normalizarRut(usuarioRemoto.rut))
+                db.usuarioDao().registrarUsuario(usuarioConRut)
+                usuarioConRut
             } else {
-                db.usuarioDao().iniciarSesion(correo, contrasena)
+                db.usuarioDao().iniciarSesion(correo.trim(), contrasena.trim())
             }
         } catch (e: Exception) {
-            db.usuarioDao().iniciarSesion(correo, contrasena)
+            db.usuarioDao().iniciarSesion(correo.trim(), contrasena.trim())
         }
     }
 
     suspend fun registro(usuario: Usuario): Usuario {
+        val usuarioNormalizado = usuario.copy(
+            correo = usuario.correo.trim(),
+            rut = normalizarRut(usuario.rut)
+        )
         return try {
-            val response = apiService.registro(usuario)
+            val response = apiService.registro(usuarioNormalizado)
             if (response.isSuccessful && response.body() != null) {
                 val usuarioGuardado = response.body()!!
-                db.usuarioDao().registrarUsuario(usuarioGuardado)
-                usuarioGuardado
+                val usuarioDef = usuarioGuardado.copy(rut = normalizarRut(usuarioGuardado.rut))
+                db.usuarioDao().registrarUsuario(usuarioDef)
+                usuarioDef
             } else {
-                db.usuarioDao().registrarUsuario(usuario)
-                usuario
+                db.usuarioDao().registrarUsuario(usuarioNormalizado)
+                usuarioNormalizado
             }
         } catch (e: Exception) {
-            db.usuarioDao().registrarUsuario(usuario)
-            usuario
+            db.usuarioDao().registrarUsuario(usuarioNormalizado)
+            usuarioNormalizado
         }
     }
 
@@ -115,37 +124,59 @@ class EsfocarRepository(
         }
     }
 
-    suspend fun evaluarAlumno(rubrica: Rubrica): Rubrica {
+    suspend fun evaluarAlumno(rubrica: Rubrica): ResultadoSync<Rubrica> {
+        val rutNorm = normalizarRut(rubrica.rutAlumno)
+        val rubricaNormalizada = rubrica.copy(
+            rutAlumno = rutNorm,
+            tipo = "RUT: $rutNorm"
+        )
+        val dto = rubricaNormalizada.toEvaluacionAlumnoDto()
+
         return try {
-            val response = apiService.evaluarAlumno(rubrica)
+            val response = apiService.evaluarAlumno(dto)
             if (response.isSuccessful && response.body() != null) {
-                val evaluacionRemota = response.body()!!
-                db.rubricaDao().guardarRubrica(evaluacionRemota)
-                evaluacionRemota
+                val evaluacionRemotaDto = response.body()!!
+                val rubricaRemota = evaluacionRemotaDto.toRubrica()
+                db.rubricaDao().guardarRubrica(rubricaRemota)
+                ResultadoSync.ExitoServidor(
+                    data = rubricaRemota,
+                    mensaje = "Sincronizado con éxito en el Servidor (PostgreSQL Neon) y respaldado en Room local."
+                )
             } else {
-                db.rubricaDao().guardarRubrica(rubrica)
-                rubrica
+                db.rubricaDao().guardarRubrica(rubricaNormalizada)
+                ResultadoSync.GuardadoLocalOffline(
+                    data = rubricaNormalizada,
+                    mensaje = "Aviso: El servidor backend devolvió un código ${response.code()}. Guardado solo en respaldo local SQLite Room."
+                )
             }
         } catch (e: Exception) {
-            db.rubricaDao().guardarRubrica(rubrica)
-            rubrica
+            db.rubricaDao().guardarRubrica(rubricaNormalizada)
+            ResultadoSync.GuardadoLocalOffline(
+                data = rubricaNormalizada,
+                mensaje = "Modo Offline: No hay conexión con el backend (${e.localizedMessage ?: "servidor no disponible"}). Guardado en SQLite Room local."
+            )
         }
     }
 
     suspend fun obtenerEvaluacionesPorRut(rut: String): List<Rubrica> {
+        val rutNorm = normalizarRut(rut)
+        if (rutNorm.isBlank()) return emptyList()
+
         return try {
-            val response = apiService.obtenerEvaluacionesPorRut(rut)
+            val response = apiService.obtenerEvaluacionesPorRut(rutNorm)
             if (response.isSuccessful && response.body() != null) {
-                val remotas = response.body()!!
-                remotas.forEach { rub ->
+                val remotasDto = response.body()!!
+                val remotasRubricas = remotasDto.map { it.toRubrica() }
+                remotasRubricas.forEach { rub ->
                     db.rubricaDao().guardarRubrica(rub)
                 }
-                remotas
+                val enLocal = db.rubricaDao().obtenerRubricasPorRut(rutNorm)
+                if (enLocal.isNotEmpty()) enLocal else remotasRubricas
             } else {
-                db.rubricaDao().obtenerRubricasPorRut(rut)
+                db.rubricaDao().obtenerRubricasPorRut(rutNorm)
             }
         } catch (e: Exception) {
-            db.rubricaDao().obtenerRubricasPorRut(rut)
+            db.rubricaDao().obtenerRubricasPorRut(rutNorm)
         }
     }
 
@@ -153,11 +184,13 @@ class EsfocarRepository(
         return try {
             val response = apiService.obtenerEvaluaciones()
             if (response.isSuccessful && response.body() != null) {
-                val remotas = response.body()!!
-                remotas.forEach { rub ->
+                val remotasDto = response.body()!!
+                val remotasRubricas = remotasDto.map { it.toRubrica() }
+                remotasRubricas.forEach { rub ->
                     db.rubricaDao().guardarRubrica(rub)
                 }
-                remotas
+                val enLocal = db.rubricaDao().obtenerTodasLasRubricas()
+                if (enLocal.isNotEmpty()) enLocal else remotasRubricas
             } else {
                 db.rubricaDao().obtenerTodasLasRubricas()
             }

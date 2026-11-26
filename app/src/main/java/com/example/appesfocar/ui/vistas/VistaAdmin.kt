@@ -86,6 +86,8 @@ import com.example.appesfocar.data.EsfocarDatabase
 import com.example.appesfocar.data.Rubrica
 import com.example.appesfocar.data.Usuario
 import com.example.appesfocar.network.RetrofitClient
+import com.example.appesfocar.network.toEvaluacionAlumnoDto
+import com.example.appesfocar.network.toRubrica
 import com.example.appesfocar.ui.theme.AppEsfocarTheme
 import com.example.appesfocar.ui.theme.VerdeInstitucional
 import kotlinx.coroutines.Dispatchers
@@ -127,7 +129,7 @@ fun VistaAdmin(
                 }
                 val respRubricas = RetrofitClient.apiService.obtenerEvaluaciones()
                 if (respRubricas.isSuccessful && respRubricas.body() != null) {
-                    respRubricas.body()!!.forEach { db.rubricaDao().guardarRubrica(it) }
+                    respRubricas.body()!!.map { it.toRubrica() }.forEach { db.rubricaDao().guardarRubrica(it) }
                 }
             } catch (_: Exception) {
                 // Respaldo offline automático en Room
@@ -630,7 +632,7 @@ fun VistaAdmin(
                                     notaFinal = notaDouble,
                                     estado = if (notaDouble >= 4.0) "APROBADO" else "REPROBADO"
                                 )
-                                try { RetrofitClient.apiService.editarEvaluacion(rubrica.id, rubricaEditada) } catch (_: Exception) {}
+                                try { RetrofitClient.apiService.editarEvaluacion(rubrica.id, rubricaEditada.toEvaluacionAlumnoDto()) } catch (_: Exception) {}
                                 db.rubricaDao().actualizarRubrica(rubricaEditada)
                                 withContext(Dispatchers.Main) {
                                     Toast.makeText(context, "Calificación corregida en la BD", Toast.LENGTH_SHORT).show()

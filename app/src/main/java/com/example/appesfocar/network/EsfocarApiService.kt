@@ -61,14 +61,14 @@ interface EsfocarApiService {
     suspend fun eliminarPlantillaRubrica(@Path("id") id: Int): Response<ResponseBody>
 
     @POST("api/rubricas/evaluar")
-    suspend fun evaluarAlumno(@Body rubrica: Rubrica): Response<Rubrica>
+    suspend fun evaluarAlumno(@Body evaluacion: EvaluacionAlumnoDto): Response<EvaluacionAlumnoDto>
 
     @GET("api/rubricas/evaluaciones")
-    suspend fun obtenerEvaluaciones(): Response<List<Rubrica>>
+    suspend fun obtenerEvaluaciones(): Response<List<EvaluacionAlumnoDto>>
 
     @PUT("api/rubricas/evaluaciones/{id}")
-    suspend fun editarEvaluacion(@Path("id") id: Int, @Body rubrica: Rubrica): Response<Rubrica>
+    suspend fun editarEvaluacion(@Path("id") id: Int, @Body evaluacion: EvaluacionAlumnoDto): Response<EvaluacionAlumnoDto>
 
     @GET("api/rubricas/alumno/{rut}")
-    suspend fun obtenerEvaluacionesPorRut(@Path("rut") rut: String): Response<List<Rubrica>>
+    suspend fun obtenerEvaluacionesPorRut(@Path("rut") rut: String): Response<List<EvaluacionAlumnoDto>>
 }

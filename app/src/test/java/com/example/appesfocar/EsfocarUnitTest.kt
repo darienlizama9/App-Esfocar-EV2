@@ -1,5 +1,7 @@
 package com.example.appesfocar
 
+import com.example.appesfocar.util.esRutValido
+import com.example.appesfocar.util.normalizarRut
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -8,11 +10,6 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 
 class EsfocarUnitTest {
-
-    fun validarRut(rut: String): Boolean {
-        val regex = "^[0-9]{7,8}-[0-9kK]$".toRegex()
-        return regex.matches(rut)
-    }
 
     fun validarContrasena(contrasena: String): Boolean {
         return contrasena.length >= 6
@@ -32,15 +29,13 @@ class EsfocarUnitTest {
     }
 
     @Test
-    fun testValidarRutChilenoValido() {
-        assertTrue(validarRut("12345678-9"))
-        assertTrue(validarRut("9876543-K"))
-    }
-
-    @Test
-    fun testValidarRutChilenoInvalido() {
-        assertFalse(validarRut("123456789"))
-        assertFalse(validarRut("12.345.678-9"))
+    fun testNormalizacionYValidacionRutChileno() {
+        assertEquals("12345678-9", normalizarRut(" 12.345.678-9 "))
+        assertEquals("9876543-K", normalizarRut("9876543k"))
+        assertTrue(esRutValido("12345678-9"))
+        assertTrue(esRutValido("12345678k"))
+        assertTrue(esRutValido("9876543-K"))
+        assertFalse(esRutValido("123"))
     }
 
     @Test

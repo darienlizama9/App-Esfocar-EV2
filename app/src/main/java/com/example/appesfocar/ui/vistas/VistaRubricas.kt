@@ -94,6 +94,9 @@ import com.example.appesfocar.data.Rubrica
 import com.example.appesfocar.data.Usuario
 import com.example.appesfocar.network.RetrofitClient
 import com.example.appesfocar.repository.EsfocarRepository
+import com.example.appesfocar.repository.ResultadoSync
+import com.example.appesfocar.util.esRutValido
+import com.example.appesfocar.util.normalizarRut
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -493,8 +496,7 @@ private fun FormularioEvaluacionNiveles(
     )
 
     fun esRutValido(rut: String): Boolean {
-        val regex = "^[0-9]{7,8}-[0-9kK]$".toRegex()
-        return regex.matches(rut)
+        return com.example.appesfocar.util.esRutValido(rut)
     }
 
     Column(
@@ -924,6 +926,12 @@ private fun FormularioEvaluacionNiveles(
                     "${crit.nombre}: ${niv.etiqueta} (${niv.puntos} pts - ${crit.obtenerDescriptor(niv)})"
                 }.joinToString(" | ")
 
+                val p1 = seleccionesNiveles.getOrNull(0)?.puntos?.toDouble() ?: 0.0
+                val p2 = seleccionesNiveles.getOrNull(1)?.puntos?.toDouble() ?: 0.0
+                val p3 = seleccionesNiveles.getOrNull(2)?.puntos?.toDouble() ?: 0.0
+                val p4 = seleccionesNiveles.getOrNull(3)?.puntos?.toDouble() ?: 0.0
+                val plantillaId = if (plantillaSeleccionada.id > 0) plantillaSeleccionada.id.toLong() else null
+
                 enviando = true
                 coroutineScope.launch(Dispatchers.IO) {
                     val nuevaRubrica = Rubrica(
@@ -931,19 +939,29 @@ private fun FormularioEvaluacionNiveles(
                         tipo = "Puntaje: $puntosObtenidos/$puntajeMaximo pts",
                         nota = notaFinalExacta,
                         feedback = "${comentarioProfesor.trim()} [$resumenNiveles]",
-                        rutAlumno = rutAlumno.trim().uppercase(),
+                        rutAlumno = normalizarRut(rutAlumno),
                         nombreAlumno = nombreAlumno.trim(),
                         apellidoAlumno = apellidoAlumno.trim(),
                         tituloRubrica = plantillaSeleccionada.titulo,
                         notaFinal = notaFinalExacta,
                         estado = estadoCalc,
-                        feedbackDocente = "${comentarioProfesor.trim()}\n\nDetalle de Rúbrica:\n$resumenNiveles"
+                        feedbackDocente = "${comentarioProfesor.trim()}\n\nDetalle de Rúbrica:\n$resumenNiveles",
+                        plantillaRubricaId = plantillaId,
+                        puntaje1 = p1,
+                        puntaje2 = p2,
+                        puntaje3 = p3,
+                        puntaje4 = p4
                     )
-                    val guardada = repository.evaluarAlumno(nuevaRubrica)
+                    val resultadoSync = repository.evaluarAlumno(nuevaRubrica)
                     withContext(Dispatchers.Main) {
                         enviando = false
-                        ultimoComprobante = guardada
-                        Toast.makeText(context, "Evaluación registrada ($puntosObtenidos/$puntajeMaximo pts)", Toast.LENGTH_SHORT).show()
+                        val (rubricaFinal, mensajeSync) = when (resultadoSync) {
+                            is ResultadoSync.ExitoServidor -> Pair(resultadoSync.data, resultadoSync.mensaje)
+                            is ResultadoSync.GuardadoLocalOffline -> Pair(resultadoSync.data, resultadoSync.mensaje)
+                            is ResultadoSync.Error -> Pair(resultadoSync.dataLocal ?: nuevaRubrica, resultadoSync.mensaje)
+                        }
+                        ultimoComprobante = rubricaFinal
+                        Toast.makeText(context, mensajeSync, Toast.LENGTH_LONG).show()
                         nombreAlumno = ""
                         apellidoAlumno = ""
                         rutAlumno = ""

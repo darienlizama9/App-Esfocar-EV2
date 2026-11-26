@@ -17,5 +17,10 @@ data class Rubrica(
     val tituloRubrica: String = "",
     val notaFinal: Double = 0.0,
     val estado: String = "",
-    val feedbackDocente: String = ""
+    val feedbackDocente: String = "",
+    val plantillaRubricaId: Long? = null,
+    val puntaje1: Double = 0.0,
+    val puntaje2: Double = 0.0,
+    val puntaje3: Double = 0.0,
+    val puntaje4: Double = 0.0
 )
