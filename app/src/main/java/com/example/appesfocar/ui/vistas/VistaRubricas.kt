@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.RateReview
 import androidx.compose.material.icons.filled.Rule
@@ -96,25 +97,67 @@ private enum class NivelLogro(
     val sigla: String,
     val etiqueta: String,
     val puntos: Int,
-    val color: Color
+    val color: Color,
+    val descripcionGenerica: String
 ) {
-    LOGRADO("L", "Logrado", 4, Color(0xFF1B5E20)),
-    MEDIANAMENTE_LOGRADO("ML", "Med. Logrado", 3, Color(0xFF2E7D32)),
-    POR_LOGRAR("PL", "Por Lograr", 2, Color(0xFFEF6C00)),
-    NO_LOGRADO("NL", "No Logrado", 1, Color(0xFFC62828))
+    LOGRADO(
+        sigla = "L",
+        etiqueta = "Logrado",
+        puntos = 4,
+        color = Color(0xFF1B5E20),
+        descripcionGenerica = "Cumple cabalmente con el estándar institucional esperado, sin errores ni observaciones."
+    ),
+    MEDIANAMENTE_LOGRADO(
+        sigla = "ML",
+        etiqueta = "Med. Logrado",
+        puntos = 3,
+        color = Color(0xFF2E7D32),
+        descripcionGenerica = "Cumple con los aspectos esenciales del criterio, presentando observaciones menores."
+    ),
+    POR_LOGRAR(
+        sigla = "PL",
+        etiqueta = "Por Lograr",
+        puntos = 2,
+        color = Color(0xFFEF6C00),
+        descripcionGenerica = "Desempeño parcial o irregular; requiere refuerzo y corrección directa del instructor."
+    ),
+    NO_LOGRADO(
+        sigla = "NL",
+        etiqueta = "No Logrado",
+        puntos = 1,
+        color = Color(0xFFC62828),
+        descripcionGenerica = "No demuestra la competencia mínima requerida o incumple la normativa básica."
+    )
+}
+
+private data class CriterioRubrica(
+    val nombre: String,
+    val descLogrado: String = NivelLogro.LOGRADO.descripcionGenerica,
+    val descMedLogrado: String = NivelLogro.MEDIANAMENTE_LOGRADO.descripcionGenerica,
+    val descPorLograr: String = NivelLogro.POR_LOGRAR.descripcionGenerica,
+    val descNoLogrado: String = NivelLogro.NO_LOGRADO.descripcionGenerica
+) {
+    fun obtenerDescriptor(nivel: NivelLogro): String = when (nivel) {
+        NivelLogro.LOGRADO -> descLogrado
+        NivelLogro.MEDIANAMENTE_LOGRADO -> descMedLogrado
+        NivelLogro.POR_LOGRAR -> descPorLograr
+        NivelLogro.NO_LOGRADO -> descNoLogrado
+    }
 }
 
 private data class PlantillaRubricaUI(
     val id: Int,
     val titulo: String,
     val descripcion: String,
-    val criterios: List<String>,
+    val criterios: List<CriterioRubrica>,
     val esPorDefecto: Boolean = false
 )
 
-// Serializa los criterios dentro del campo 'feedback' de la plantilla para persistir en PostgreSQL/Room sin cambiar la tabla
+// Serializa criterios y sus descriptores en 'feedback' para persistir en PostgreSQL/Room sin alterar columnas
 private fun PlantillaRubricaUI.aEntidadRubrica(): Rubrica {
-    val criteriosEmpaquetados = criterios.joinToString("|")
+    val criteriosEmpaquetados = criterios.joinToString("|") { c ->
+        "${c.nombre}::${c.descLogrado}::${c.descMedLogrado}::${c.descPorLograr}::${c.descNoLogrado}"
+    }
     return Rubrica(
         id = if (esPorDefecto) 0 else id,
         titulo = titulo,
@@ -130,12 +173,22 @@ private fun Rubrica.aPlantillaUI(): PlantillaRubricaUI {
         .split("|")
         .map { it.trim() }
         .filter { it.isNotBlank() }
+        .map { bloque ->
+            val partes = bloque.split("::")
+            CriterioRubrica(
+                nombre = partes.getOrElse(0) { bloque },
+                descLogrado = partes.getOrElse(1) { NivelLogro.LOGRADO.descripcionGenerica },
+                descMedLogrado = partes.getOrElse(2) { NivelLogro.MEDIANAMENTE_LOGRADO.descripcionGenerica },
+                descPorLograr = partes.getOrElse(3) { NivelLogro.POR_LOGRAR.descripcionGenerica },
+                descNoLogrado = partes.getOrElse(4) { NivelLogro.NO_LOGRADO.descripcionGenerica }
+            )
+        }
         .ifEmpty {
             listOf(
-                "Presentación Personal y Porte Policial",
-                "Dominio Técnico y Procedimental",
-                "Disciplina y Rigor Normativo",
-                "Liderazgo y Trabajo en Equipo"
+                CriterioRubrica("1. Presentación y Porte Policial"),
+                CriterioRubrica("2. Dominio Técnico / Táctico"),
+                CriterioRubrica("3. Disciplina y Rigor Normativo"),
+                CriterioRubrica("4. Liderazgo y Trabajo en Equipo")
             )
         }
     return PlantillaRubricaUI(
@@ -150,7 +203,6 @@ private fun Rubrica.aPlantillaUI(): PlantillaRubricaUI {
 private fun calcularNotaDesdePuntos(puntosObtenidos: Int, puntajeMaximo: Int): Double {
     if (puntajeMaximo <= 0 || puntosObtenidos <= 0) return 1.0
     val proporcion = puntosObtenidos.toDouble() / puntajeMaximo.toDouble()
-    // Escala chilena: 60% de exigencia (0.60 -> nota 4.0)
     val notaBruta = if (proporcion >= 0.60) {
         4.0 + 3.0 * ((proporcion - 0.60) / 0.40)
     } else {
@@ -183,10 +235,34 @@ fun VistaRubricas() {
             titulo = "Rúbrica Práctica ESFOCAR (Estándar)",
             descripcion = "4 criterios institucionales • Escala 4 a 16 pts (60% exigencia)",
             criterios = listOf(
-                "1. Presentación y Porte Policial",
-                "2. Dominio Técnico / Táctico",
-                "3. Disciplina y Rigor Normativo",
-                "4. Liderazgo y Trabajo en Equipo"
+                CriterioRubrica(
+                    nombre = "1. Presentación y Porte Policial",
+                    descLogrado = "Uniforme impecable, postura marcial reglamentaria y equipo completo sin observaciones.",
+                    descMedLogrado = "Presentación general correcta, con detalles menores en uniforme o postura.",
+                    descPorLograr = "Descuido visible en tenida o postura; requiere corrección inmediata del instructor.",
+                    descNoLogrado = "Incumple gravemente el reglamento de presentación personal y porte institucional."
+                ),
+                CriterioRubrica(
+                    nombre = "2. Dominio Técnico / Táctico",
+                    descLogrado = "Ejecuta los procedimientos policiales con precisión, seguridad y total dominio técnico.",
+                    descMedLogrado = "Aplica correctamente la técnica general, presentando imprecisiones menores en ejecución.",
+                    descPorLograr = "Presenta dudas frecuentes en el procedimiento y requiere guía constante del instructor.",
+                    descNoLogrado = "Desconoce la técnica o ejecuta maniobras inseguras fuera de protocolo."
+                ),
+                CriterioRubrica(
+                    nombre = "3. Disciplina y Rigor Normativo",
+                    descLogrado = "Acata órdenes con prontitud, respeto jerárquico y estricto apego a la normativa.",
+                    descMedLogrado = "Mantiene actitud disciplinada, con leves retrasos o distracciones puntuales.",
+                    descPorLograr = "Muestra falta de rigor en el cumplimiento de instrucciones y protocolos.",
+                    descNoLogrado = "Incumple órdenes directas o vulnera normas disciplinarias durante la instrucción."
+                ),
+                CriterioRubrica(
+                    nombre = "4. Liderazgo y Trabajo en Equipo",
+                    descLogrado = "Coordina eficazmente a su escuadra, toma iniciativa y apoya activamente al equipo.",
+                    descMedLogrado = "Colabora adecuadamente con sus pares, aunque con iniciativa limitada.",
+                    descPorLograr = "Dificultad para integrarse o comunicarse con el equipo durante el ejercicio.",
+                    descNoLogrado = "Actitud individualista o pasiva que entorpece el desempeño de la escuadra."
+                )
             ),
             esPorDefecto = true
         )
@@ -357,7 +433,6 @@ private fun FormularioEvaluacionNiveles(
     var rutAlumno by remember { mutableStateOf("") }
     var menuEstudiantesExpandido by remember { mutableStateOf(false) }
 
-    // Lista de niveles seleccionados por cada criterio de la plantilla activa
     val seleccionesNiveles = remember(plantillaSeleccionada) {
         mutableStateListOf<NivelLogro?>().apply {
             repeat(plantillaSeleccionada.criterios.size) { add(null) }
@@ -419,7 +494,7 @@ private fun FormularioEvaluacionNiveles(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Marcador Superior en Tiempo Real (Puntos + Nota 1.0 - 7.0)
+        // Marcador Superior en Tiempo Real
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -455,7 +530,7 @@ private fun FormularioEvaluacionNiveles(
                         modifier = Modifier.padding(top = 4.dp)
                     )
                     Text(
-                        text = "L=4pts • ML=3pts • PL=2pts • NL=1pt",
+                        text = "Toca un nivel para ver su descriptor de evaluación",
                         fontSize = 11.sp,
                         color = Color.White.copy(alpha = 0.8f),
                         modifier = Modifier.padding(top = 2.dp)
@@ -477,7 +552,7 @@ private fun FormularioEvaluacionNiveles(
             }
         }
 
-        // Selección de Rúbrica + Datos del Alumno
+        // 1. Selección de Rúbrica + Datos del Alumno
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -494,7 +569,6 @@ private fun FormularioEvaluacionNiveles(
                     modifier = Modifier.padding(bottom = 10.dp)
                 )
 
-                // Selector de Plantilla de Rúbrica
                 ExposedDropdownMenuBox(
                     expanded = menuPlantillaExpandido,
                     onExpandedChange = { menuPlantillaExpandido = it },
@@ -535,7 +609,6 @@ private fun FormularioEvaluacionNiveles(
                     }
                 }
 
-                // Autocompletado del Estudiante
                 ExposedDropdownMenuBox(
                     expanded = menuEstudiantesExpandido && sugerenciasEstudiantes.isNotEmpty(),
                     onExpandedChange = { menuEstudiantesExpandido = it },
@@ -602,7 +675,7 @@ private fun FormularioEvaluacionNiveles(
             }
         }
 
-        // 2. Evaluación por Niveles de Logro (Logrado, Med. Logrado, Por Lograr, No Logrado)
+        // 2. Evaluación por Niveles de Logro con Descriptor Explicativo
         Text(
             text = "2. Marcar Nivel de Logro por Criterio",
             fontWeight = FontWeight.Bold,
@@ -612,7 +685,7 @@ private fun FormularioEvaluacionNiveles(
                 .padding(bottom = 10.dp)
         )
 
-        plantillaSeleccionada.criterios.forEachIndexed { index, nombreCriterio ->
+        plantillaSeleccionada.criterios.forEachIndexed { index, criterioObj ->
             val nivelActual = seleccionesNiveles.getOrNull(index)
 
             Card(
@@ -630,7 +703,7 @@ private fun FormularioEvaluacionNiveles(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = nombreCriterio,
+                            text = criterioObj.nombre,
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
                             color = Color.Black,
@@ -696,6 +769,55 @@ private fun FormularioEvaluacionNiveles(
                             }
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Recuadro explicativo: por qué corresponde Logrado / Med. Logrado / Por Lograr / No Logrado
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        color = (nivelActual?.color ?: Color(0xFF455A64)).copy(alpha = 0.08f),
+                        border = BorderStroke(
+                            width = 1.dp,
+                            color = (nivelActual?.color ?: Color(0xFFB0BEC5)).copy(alpha = 0.35f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = nivelActual?.color ?: Color(0xFF546E7A),
+                                modifier = Modifier.size(16.dp).padding(top = 2.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                if (nivelActual != null) {
+                                    Text(
+                                        text = "Criterio para ${nivelActual.etiqueta} (${nivelActual.puntos} pts):",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = nivelActual.color
+                                    )
+                                    Text(
+                                        text = criterioObj.obtenerDescriptor(nivelActual),
+                                        fontSize = 12.sp,
+                                        color = Color.DarkGray,
+                                        lineHeight = 16.sp,
+                                        modifier = Modifier.padding(top = 2.dp)
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Selecciona un nivel arriba para ver el fundamento de evaluación.",
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF546E7A)
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -741,7 +863,7 @@ private fun FormularioEvaluacionNiveles(
                 val estadoCalc = if (notaFinalExacta >= 4.0) "APROBADO" else "REPROBADO"
                 val resumenNiveles = plantillaSeleccionada.criterios.mapIndexed { idx, crit ->
                     val niv = seleccionesNiveles[idx]!!
-                    "$crit: ${niv.etiqueta} (${niv.puntos} pts)"
+                    "${crit.nombre}: ${niv.etiqueta} (${niv.puntos} pts - ${crit.obtenerDescriptor(niv)})"
                 }.joinToString(" | ")
 
                 enviando = true
@@ -757,7 +879,7 @@ private fun FormularioEvaluacionNiveles(
                         tituloRubrica = plantillaSeleccionada.titulo,
                         notaFinal = notaFinalExacta,
                         estado = estadoCalc,
-                        feedbackDocente = "${comentarioProfesor.trim()}\nDetalle: $resumenNiveles"
+                        feedbackDocente = "${comentarioProfesor.trim()}\n\nDetalle de Rúbrica:\n$resumenNiveles"
                     )
                     val guardada = repository.evaluarAlumno(nuevaRubrica)
                     withContext(Dispatchers.Main) {
@@ -940,8 +1062,9 @@ private fun GestorPlantillasRubrica(
 
                         plantilla.criterios.forEach { criterio ->
                             Text(
-                                text = "• $criterio",
+                                text = "• ${criterio.nombre}",
                                 fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
                                 color = Color.DarkGray,
                                 modifier = Modifier.padding(vertical = 2.dp)
                             )
@@ -952,7 +1075,6 @@ private fun GestorPlantillasRubrica(
         }
     }
 
-    // Modal CREAR RÚBRICA
     if (mostrarModalCrear) {
         ModalFormularioPlantilla(
             tituloModal = "Crear Nueva Rúbrica",
@@ -960,11 +1082,14 @@ private fun GestorPlantillasRubrica(
             onDismiss = { mostrarModalCrear = false },
             onGuardar = { titulo, descripcion, criterios ->
                 coroutineScope.launch(Dispatchers.IO) {
+                    val empaquetados = criterios.joinToString("|") { c ->
+                        "${c.nombre}::${c.descLogrado}::${c.descMedLogrado}::${c.descPorLograr}::${c.descNoLogrado}"
+                    }
                     val nuevaEntidad = Rubrica(
                         titulo = titulo,
                         tipo = "PLANTILLA",
                         nota = 4.0,
-                        feedback = criterios.joinToString("|"),
+                        feedback = empaquetados,
                         tituloRubrica = descripcion
                     )
                     val guardada = try {
@@ -984,7 +1109,6 @@ private fun GestorPlantillasRubrica(
         )
     }
 
-    // Modal EDITAR RÚBRICA
     plantillaAEditar?.let { plantilla ->
         ModalFormularioPlantilla(
             tituloModal = "Editar Rúbrica",
@@ -992,12 +1116,15 @@ private fun GestorPlantillasRubrica(
             onDismiss = { plantillaAEditar = null },
             onGuardar = { titulo, descripcion, criterios ->
                 coroutineScope.launch(Dispatchers.IO) {
+                    val empaquetados = criterios.joinToString("|") { c ->
+                        "${c.nombre}::${c.descLogrado}::${c.descMedLogrado}::${c.descPorLograr}::${c.descNoLogrado}"
+                    }
                     val entidadActualizada = Rubrica(
                         id = plantilla.id,
                         titulo = titulo,
                         tipo = "PLANTILLA",
                         nota = 4.0,
-                        feedback = criterios.joinToString("|"),
+                        feedback = empaquetados,
                         tituloRubrica = descripcion
                     )
                     try {
@@ -1021,15 +1148,15 @@ private fun ModalFormularioPlantilla(
     tituloModal: String,
     plantillaInicial: PlantillaRubricaUI?,
     onDismiss: () -> Unit,
-    onGuardar: (String, String, List<String>) -> Unit
+    onGuardar: (String, String, List<CriterioRubrica>) -> Unit
 ) {
     val context = LocalContext.current
     var titulo by remember { mutableStateOf(plantillaInicial?.titulo ?: "") }
     var descripcion by remember { mutableStateOf(plantillaInicial?.descripcion ?: "") }
-    var c1 by remember { mutableStateOf(plantillaInicial?.criterios?.getOrNull(0) ?: "") }
-    var c2 by remember { mutableStateOf(plantillaInicial?.criterios?.getOrNull(1) ?: "") }
-    var c3 by remember { mutableStateOf(plantillaInicial?.criterios?.getOrNull(2) ?: "") }
-    var c4 by remember { mutableStateOf(plantillaInicial?.criterios?.getOrNull(3) ?: "") }
+    var c1 by remember { mutableStateOf(plantillaInicial?.criterios?.getOrNull(0)?.nombre ?: "") }
+    var c2 by remember { mutableStateOf(plantillaInicial?.criterios?.getOrNull(1)?.nombre ?: "") }
+    var c3 by remember { mutableStateOf(plantillaInicial?.criterios?.getOrNull(2)?.nombre ?: "") }
+    var c4 by remember { mutableStateOf(plantillaInicial?.criterios?.getOrNull(3)?.nombre ?: "") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1064,7 +1191,18 @@ private fun ModalFormularioPlantilla(
         confirmButton = {
             Button(
                 onClick = {
-                    val listaCriterios = listOf(c1, c2, c3, c4).map { it.trim() }.filter { it.isNotBlank() }
+                    val listaCriterios = listOf(c1, c2, c3, c4)
+                        .map { it.trim() }
+                        .filter { it.isNotBlank() }
+                        .map { nombreCrit ->
+                            CriterioRubrica(
+                                nombre = nombreCrit,
+                                descLogrado = "Domina '$nombreCrit' con excelencia y total rigor institucional.",
+                                descMedLogrado = "Aplica '$nombreCrit' de forma adecuada, con detalles menores por pulir.",
+                                descPorLograr = "Presenta dificultades en '$nombreCrit'; requiere refuerzo práctico.",
+                                descNoLogrado = "No demuestra dominio mínimo en '$nombreCrit' durante la evaluación."
+                            )
+                        }
                     if (titulo.isBlank() || listaCriterios.isEmpty()) {
                         Toast.makeText(context, "Ingresa el nombre y al menos 1 criterio", Toast.LENGTH_SHORT).show()
                         return@Button
