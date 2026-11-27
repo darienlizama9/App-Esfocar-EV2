@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 data class Documento(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
-    val nombreArchivo: String,
-    val rutaUri: String
+    val nombreArchivo: String = "",
+    val rutaUri: String = "",
+    val tipoArchivo: String = "Documento PDF/Word"
 )

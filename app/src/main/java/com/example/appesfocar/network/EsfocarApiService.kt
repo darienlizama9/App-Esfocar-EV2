@@ -1,7 +1,6 @@
 package com.example.appesfocar.network
 
 import com.example.appesfocar.data.Documento
-import com.example.appesfocar.data.Rubrica
 import com.example.appesfocar.data.Usuario
 import okhttp3.ResponseBody
 import retrofit2.Response
@@ -49,16 +48,16 @@ interface EsfocarApiService {
     suspend fun eliminarDocumento(@Path("id") id: Int): Response<ResponseBody>
 
     @GET("api/rubricas/plantillas")
-    suspend fun obtenerPlantillasRubrica(): Response<List<Rubrica>>
+    suspend fun obtenerPlantillasRubrica(): Response<List<PlantillaRubricaDto>>
 
     @POST("api/rubricas/plantillas")
-    suspend fun guardarPlantillaRubrica(@Body rubrica: Rubrica): Response<Rubrica>
+    suspend fun guardarPlantillaRubrica(@Body plantilla: PlantillaRubricaDto): Response<PlantillaRubricaDto>
 
     @PUT("api/rubricas/plantillas/{id}")
-    suspend fun editarPlantillaRubrica(@Path("id") id: Int, @Body rubrica: Rubrica): Response<Rubrica>
+    suspend fun editarPlantillaRubrica(@Path("id") id: Long, @Body plantilla: PlantillaRubricaDto): Response<PlantillaRubricaDto>
 
     @DELETE("api/rubricas/plantillas/{id}")
-    suspend fun eliminarPlantillaRubrica(@Path("id") id: Int): Response<ResponseBody>
+    suspend fun eliminarPlantillaRubrica(@Path("id") id: Long): Response<ResponseBody>
 
     @POST("api/rubricas/evaluar")
     suspend fun evaluarAlumno(@Body evaluacion: EvaluacionAlumnoDto): Response<EvaluacionAlumnoDto>

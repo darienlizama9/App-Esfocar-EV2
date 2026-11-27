@@ -68,46 +68,44 @@ class EsfocarRepository(
                 remotos.forEach { doc ->
                     db.documentoDao().insertarDocumento(doc)
                 }
-                remotos
-            } else {
-                db.documentoDao().obtenerListaDocumentos()
             }
+            db.documentoDao().obtenerListaDocumentos()
         } catch (e: Exception) {
             db.documentoDao().obtenerListaDocumentos()
         }
     }
 
-    suspend fun guardarDocumento(documento: Documento): Documento {
+    suspend fun guardarDocumento(documento: Documento): ResultadoSync<Documento> {
         return try {
             val response = apiService.guardarDocumento(documento)
             if (response.isSuccessful && response.body() != null) {
                 val docGuardado = response.body()!!
                 db.documentoDao().insertarDocumento(docGuardado)
-                docGuardado
+                ResultadoSync.ExitoServidor(docGuardado, "Documento guardado en Servidor Render y respaldo Room")
             } else {
                 db.documentoDao().insertarDocumento(documento)
-                documento
+                ResultadoSync.GuardadoLocalOffline(documento, "Documento guardado en respaldo local SQLite Room")
             }
         } catch (e: Exception) {
             db.documentoDao().insertarDocumento(documento)
-            documento
+            ResultadoSync.GuardadoLocalOffline(documento, "Modo Offline: Documento guardado en SQLite Room local")
         }
     }
 
-    suspend fun editarDocumento(documento: Documento): Documento {
+    suspend fun editarDocumento(documento: Documento): ResultadoSync<Documento> {
         return try {
             val response = apiService.editarDocumento(documento.id, documento)
             if (response.isSuccessful && response.body() != null) {
                 val docEditado = response.body()!!
                 db.documentoDao().actualizarDocumento(docEditado)
-                docEditado
+                ResultadoSync.ExitoServidor(docEditado, "Documento actualizado en Servidor Render y Room")
             } else {
                 db.documentoDao().actualizarDocumento(documento)
-                documento
+                ResultadoSync.GuardadoLocalOffline(documento, "Documento actualizado en respaldo local SQLite Room")
             }
         } catch (e: Exception) {
             db.documentoDao().actualizarDocumento(documento)
-            documento
+            ResultadoSync.GuardadoLocalOffline(documento, "Modo Offline: Documento actualizado en SQLite Room local")
         }
     }
 

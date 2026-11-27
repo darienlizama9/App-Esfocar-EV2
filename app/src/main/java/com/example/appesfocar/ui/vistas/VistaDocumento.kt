@@ -1,7 +1,9 @@
 package com.example.appesfocar.ui.vistas
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.OpenableColumns
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -26,9 +28,32 @@ import androidx.compose.ui.unit.sp
 import com.example.appesfocar.data.Documento
 import com.example.appesfocar.data.EsfocarDatabase
 import com.example.appesfocar.repository.EsfocarRepository
+import com.example.appesfocar.repository.ResultadoSync
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+private fun obtenerNombreRealArchivo(context: Context, uri: Uri): String {
+    var nombre = ""
+    if (uri.scheme == "content") {
+        try {
+            val cursor = context.contentResolver.query(uri, null, null, null, null)
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    val index = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (index != -1) {
+                        nombre = it.getString(index)
+                    }
+                }
+            }
+        } catch (_: Exception) {
+        }
+    }
+    if (nombre.isBlank()) {
+        nombre = uri.lastPathSegment?.substringAfterLast('/') ?: "Documento_Adjunto.pdf"
+    }
+    return nombre
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,12 +66,14 @@ fun VistaDocumentos() {
     var documentosGuardados by remember { mutableStateOf(listOf<Documento>()) }
     var documentoAEditar by remember { mutableStateOf<Documento?>(null) }
     var nuevoNombreDoc by remember { mutableStateOf("") }
+    var cargando by remember { mutableStateOf(true) }
 
     fun cargarDocumentos() {
         coroutineScope.launch(Dispatchers.IO) {
             val docs = repository.listarDocumentos()
             withContext(Dispatchers.Main) {
                 documentosGuardados = docs
+                cargando = false
             }
         }
     }
@@ -64,19 +91,27 @@ fun VistaDocumentos() {
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
-            } catch (e: Exception) {
+            } catch (_: Exception) {
             }
 
+            val nombreReal = obtenerNombreRealArchivo(context, uri)
             val nuevoDoc = Documento(
-                nombreArchivo = "Documento_Oficial_${documentosGuardados.size + 1}.pdf",
-                rutaUri = uri.toString()
+                nombreArchivo = nombreReal,
+                rutaUri = uri.toString(),
+                tipoArchivo = if (nombreReal.endsWith(".pdf", ignoreCase = true)) "PDF" else "Documento"
             )
 
             coroutineScope.launch(Dispatchers.IO) {
-                repository.guardarDocumento(nuevoDoc)
-                cargarDocumentos()
+                val resultadoSync = repository.guardarDocumento(nuevoDoc)
+                val docsActualizados = repository.listarDocumentos()
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Documento cargado con éxito", Toast.LENGTH_SHORT).show()
+                    documentosGuardados = docsActualizados
+                    val mensaje = when (resultadoSync) {
+                        is ResultadoSync.ExitoServidor -> resultadoSync.mensaje
+                        is ResultadoSync.GuardadoLocalOffline -> resultadoSync.mensaje
+                        is ResultadoSync.Error -> resultadoSync.mensaje
+                    }
+                    Toast.makeText(context, mensaje, Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -137,7 +172,8 @@ fun VistaDocumentos() {
                                 arrayOf(
                                     "application/pdf",
                                     "application/msword",
-                                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                    "text/plain"
                                 )
                             )
                         },
@@ -169,7 +205,16 @@ fun VistaDocumentos() {
                 )
             }
 
-            if (documentosGuardados.isEmpty()) {
+            if (cargando) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = Color(0xFF1B5E20))
+                }
+            } else if (documentosGuardados.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -210,7 +255,7 @@ fun VistaDocumentos() {
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = "Archivo en repositorio",
+                                        text = doc.tipoArchivo.ifBlank { "Archivo adjunto" },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = Color.Gray
                                     )
@@ -220,12 +265,12 @@ fun VistaDocumentos() {
                                         if (doc.rutaUri.isNotBlank()) {
                                             val uri = Uri.parse(doc.rutaUri)
                                             val intent = Intent(Intent.ACTION_VIEW).apply {
-                                                setDataAndType(uri, "application/pdf")
+                                                setDataAndType(uri, "application/*")
                                                 flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
                                             }
                                             try {
                                                 context.startActivity(intent)
-                                            } catch (e: Exception) {
+                                            } catch (_: Exception) {
                                                 Toast.makeText(context, "No hay aplicación para abrir este archivo", Toast.LENGTH_SHORT).show()
                                             }
                                         }
@@ -251,8 +296,9 @@ fun VistaDocumentos() {
                                     IconButton(onClick = {
                                         coroutineScope.launch(Dispatchers.IO) {
                                             repository.eliminarDocumento(doc)
-                                            cargarDocumentos()
+                                            val docsActualizados = repository.listarDocumentos()
                                             withContext(Dispatchers.Main) {
+                                                documentosGuardados = docsActualizados
                                                 Toast.makeText(context, "Documento eliminado", Toast.LENGTH_SHORT).show()
                                             }
                                         }
@@ -290,12 +336,18 @@ fun VistaDocumentos() {
                 Button(
                     onClick = {
                         if (nuevoNombreDoc.isNotBlank()) {
-                            val docModificado = doc.copy(nombreArchivo = nuevoNombreDoc)
+                            val docModificado = doc.copy(nombreArchivo = nuevoNombreDoc.trim())
                             coroutineScope.launch(Dispatchers.IO) {
-                                repository.editarDocumento(docModificado)
-                                cargarDocumentos()
+                                val resSync = repository.editarDocumento(docModificado)
+                                val docsActualizados = repository.listarDocumentos()
                                 withContext(Dispatchers.Main) {
-                                    Toast.makeText(context, "Documento actualizado", Toast.LENGTH_SHORT).show()
+                                    documentosGuardados = docsActualizados
+                                    val mensaje = when (resSync) {
+                                        is ResultadoSync.ExitoServidor -> resSync.mensaje
+                                        is ResultadoSync.GuardadoLocalOffline -> resSync.mensaje
+                                        is ResultadoSync.Error -> resSync.mensaje
+                                    }
+                                    Toast.makeText(context, mensaje, Toast.LENGTH_SHORT).show()
                                     documentoAEditar = null
                                 }
                             }

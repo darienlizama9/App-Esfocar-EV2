@@ -92,9 +92,11 @@ import androidx.compose.ui.unit.sp
 import com.example.appesfocar.data.EsfocarDatabase
 import com.example.appesfocar.data.Rubrica
 import com.example.appesfocar.data.Usuario
+import com.example.appesfocar.network.PlantillaRubricaDto
 import com.example.appesfocar.network.RetrofitClient
 import com.example.appesfocar.repository.EsfocarRepository
 import com.example.appesfocar.repository.ResultadoSync
+import com.example.appesfocar.ui.theme.AppEsfocarTheme
 import com.example.appesfocar.util.esRutValido
 import com.example.appesfocar.util.normalizarRut
 import kotlinx.coroutines.Dispatchers
@@ -164,49 +166,77 @@ private data class PlantillaRubricaUI(
     val esPorDefecto: Boolean = false
 )
 
-// Serializa criterios y sus descriptores en 'feedback' para persistir en PostgreSQL/Room sin alterar columnas
+private fun PlantillaRubricaDto.aPlantillaUI(): PlantillaRubricaUI {
+    val idInt = this.id?.toInt() ?: -1
+    val desc = "4 criterios institucionales • Max ${this.puntajeMaximo.toInt()} pts"
+    val c1 = if (this.criterio1Nombre.isNotBlank()) this.criterio1Nombre else "1. Presentación y Porte Policial"
+    val c2 = if (this.criterio2Nombre.isNotBlank()) this.criterio2Nombre else "2. Dominio Técnico / Táctico"
+    val c3 = if (this.criterio3Nombre.isNotBlank()) this.criterio3Nombre else "3. Disciplina y Rigor Normativo"
+    val c4 = if (this.criterio4Nombre.isNotBlank()) this.criterio4Nombre else "4. Liderazgo y Trabajo en Equipo"
+
+    return PlantillaRubricaUI(
+        id = idInt,
+        titulo = this.titulo.ifBlank { "Rúbrica de Evaluación" },
+        descripcion = desc,
+        criterios = listOf(
+            CriterioRubrica(c1),
+            CriterioRubrica(c2),
+            CriterioRubrica(c3),
+            CriterioRubrica(c4)
+        ),
+        esPorDefecto = false
+    )
+}
+
+private fun PlantillaRubricaUI.aDto(): PlantillaRubricaDto {
+    val c1 = criterios.getOrNull(0)?.nombre ?: "1. Criterio 1"
+    val c2 = criterios.getOrNull(1)?.nombre ?: "2. Criterio 2"
+    val c3 = criterios.getOrNull(2)?.nombre ?: "3. Criterio 3"
+    val c4 = criterios.getOrNull(4)?.nombre ?: "4. Criterio 4"
+    val maxPts = (criterios.size * 4).toDouble()
+    return PlantillaRubricaDto(
+        id = if (id > 0) id.toLong() else null,
+        titulo = titulo,
+        tipo = "Individual",
+        criterio1Nombre = c1,
+        criterio2Nombre = c2,
+        criterio3Nombre = c3,
+        criterio4Nombre = c4,
+        puntajeMaximo = if (maxPts > 0) maxPts else 16.0
+    )
+}
+
 private fun PlantillaRubricaUI.aEntidadRubrica(): Rubrica {
-    val criteriosEmpaquetados = criterios.joinToString("|") { c ->
-        "${c.nombre}::${c.descLogrado}::${c.descMedLogrado}::${c.descPorLograr}::${c.descNoLogrado}"
-    }
+    val dto = this.aDto()
+    val empaquetados = "${dto.criterio1Nombre}|${dto.criterio2Nombre}|${dto.criterio3Nombre}|${dto.criterio4Nombre}"
     return Rubrica(
-        id = if (esPorDefecto) 0 else id,
+        id = if (esPorDefecto || id <= 0) 0 else id,
         titulo = titulo,
         tipo = "PLANTILLA",
         nota = 4.0,
-        feedback = criteriosEmpaquetados,
-        tituloRubrica = descripcion
+        feedback = empaquetados,
+        tituloRubrica = descripcion,
+        plantillaRubricaId = if (id > 0) id.toLong() else null
     )
 }
 
 private fun Rubrica.aPlantillaUI(): PlantillaRubricaUI {
-    val listaCriterios = feedback
-        .split("|")
-        .map { it.trim() }
-        .filter { it.isNotBlank() }
-        .map { bloque ->
-            val partes = bloque.split("::")
-            CriterioRubrica(
-                nombre = partes.getOrElse(0) { bloque },
-                descLogrado = partes.getOrElse(1) { NivelLogro.LOGRADO.descripcionGenerica },
-                descMedLogrado = partes.getOrElse(2) { NivelLogro.MEDIANAMENTE_LOGRADO.descripcionGenerica },
-                descPorLograr = partes.getOrElse(3) { NivelLogro.POR_LOGRAR.descripcionGenerica },
-                descNoLogrado = partes.getOrElse(4) { NivelLogro.NO_LOGRADO.descripcionGenerica }
-            )
-        }
-        .ifEmpty {
-            listOf(
-                CriterioRubrica("1. Presentación y Porte Policial"),
-                CriterioRubrica("2. Dominio Técnico / Táctico"),
-                CriterioRubrica("3. Disciplina y Rigor Normativo"),
-                CriterioRubrica("4. Liderazgo y Trabajo en Equipo")
-            )
-        }
+    val partes = feedback.split("|").map { it.trim() }
+    val c1 = partes.getOrElse(0) { "1. Presentación y Porte Policial" }
+    val c2 = partes.getOrElse(1) { "2. Dominio Técnico / Táctico" }
+    val c3 = partes.getOrElse(2) { "3. Disciplina y Rigor Normativo" }
+    val c4 = partes.getOrElse(3) { "4. Liderazgo y Trabajo en Equipo" }
+
     return PlantillaRubricaUI(
         id = id,
         titulo = titulo.ifBlank { "Rúbrica Institucional" },
-        descripcion = tituloRubrica.ifBlank { "Evaluación por niveles de logro (1 a 4 pts por criterio)" },
-        criterios = listaCriterios,
+        descripcion = tituloRubrica.ifBlank { "4 criterios institucionales • Escala 4 a 16 pts" },
+        criterios = listOf(
+            CriterioRubrica(if (c1.isNotBlank()) c1 else "1. Criterio 1"),
+            CriterioRubrica(if (c2.isNotBlank()) c2 else "2. Criterio 2"),
+            CriterioRubrica(if (c3.isNotBlank()) c3 else "3. Criterio 3"),
+            CriterioRubrica(if (c4.isNotBlank()) c4 else "4. Criterio 4")
+        ),
         esPorDefecto = false
     )
 }
@@ -281,24 +311,27 @@ fun VistaRubricas() {
 
     fun recargarPlantillas() {
         coroutineScope.launch(Dispatchers.IO) {
-            val remotas = try {
+            val (mapeadas, deServidor) = try {
                 val resp = RetrofitClient.apiService.obtenerPlantillasRubrica()
                 if (resp.isSuccessful && resp.body() != null) {
-                    resp.body()!!.forEach { db.rubricaDao().guardarRubrica(it) }
-                    resp.body()!!
+                    val dtos = resp.body()!!
+                    dtos.forEach { dto ->
+                        db.rubricaDao().guardarRubrica(dto.aPlantillaUI().aEntidadRubrica())
+                    }
+                    Pair(dtos.map { it.aPlantillaUI() }, true)
                 } else {
-                    db.rubricaDao().obtenerTodasLasRubricas().filter { it.tipo == "PLANTILLA" }
+                    val locales = db.rubricaDao().obtenerTodasLasRubricas().filter { it.tipo == "PLANTILLA" }
+                    Pair(locales.map { it.aPlantillaUI() }, false)
                 }
             } catch (_: Exception) {
-                db.rubricaDao().obtenerTodasLasRubricas().filter { it.tipo == "PLANTILLA" }
+                val locales = db.rubricaDao().obtenerTodasLasRubricas().filter { it.tipo == "PLANTILLA" }
+                Pair(locales.map { it.aPlantillaUI() }, false)
             }
 
-            val mapeadas = listOf(plantillaBase) + remotas
-                .filter { it.tipo == "PLANTILLA" }
-                .map { it.aPlantillaUI() }
+            val listaFinal = (listOf(plantillaBase) + mapeadas).distinctBy { it.id }
 
             withContext(Dispatchers.Main) {
-                plantillasDisponibles = mapeadas
+                plantillasDisponibles = listaFinal
             }
         }
     }
@@ -438,7 +471,8 @@ private fun FormularioEvaluacionNiveles(
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    var plantillaSeleccionada by remember(plantillas) { mutableStateOf(plantillas.first()) }
+    var selectedPlantillaId by remember { mutableIntStateOf(plantillas.first().id) }
+    val plantillaSeleccionada = plantillas.find { it.id == selectedPlantillaId } ?: plantillas.first()
     var menuPlantillaExpandido by remember { mutableStateOf(false) }
 
     var nombreAlumno by remember { mutableStateOf("") }
@@ -446,7 +480,7 @@ private fun FormularioEvaluacionNiveles(
     var rutAlumno by remember { mutableStateOf("") }
     var menuEstudiantesExpandido by remember { mutableStateOf(false) }
 
-    val seleccionesNiveles = remember(plantillaSeleccionada) {
+    val seleccionesNiveles = remember(plantillaSeleccionada.id) {
         mutableStateListOf<NivelLogro?>().apply {
             repeat(plantillaSeleccionada.criterios.size) { add(null) }
         }
@@ -618,7 +652,7 @@ private fun FormularioEvaluacionNiveles(
                                     }
                                 },
                                 onClick = {
-                                    plantillaSeleccionada = plantilla
+                                    selectedPlantillaId = plantilla.id
                                     menuPlantillaExpandido = false
                                 }
                             )
@@ -819,7 +853,7 @@ private fun FormularioEvaluacionNiveles(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Recuadro explicativo: por qué corresponde Logrado / Med. Logrado / Por Lograr / No Logrado
+                    // Recuadro explicativo descriptor
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
@@ -1103,13 +1137,23 @@ private fun GestorPlantillasRubrica(
                                     IconButton(
                                         onClick = {
                                             coroutineScope.launch(Dispatchers.IO) {
+                                                var exitoRemoto = false
+                                                var errorMsg = ""
                                                 try {
-                                                    RetrofitClient.apiService.eliminarPlantillaRubrica(plantilla.id)
-                                                } catch (_: Exception) {
+                                                    val resp = RetrofitClient.apiService.eliminarPlantillaRubrica(plantilla.id.toLong())
+                                                    if (resp.isSuccessful) {
+                                                        exitoRemoto = true
+                                                    } else {
+                                                        errorMsg = "Código ${resp.code()}"
+                                                    }
+                                                } catch (e: Exception) {
+                                                    errorMsg = e.localizedMessage ?: "sin conexión"
                                                 }
+
                                                 db.rubricaDao().eliminarRubrica(plantilla.aEntidadRubrica())
                                                 withContext(Dispatchers.Main) {
-                                                    Toast.makeText(context, "Rúbrica eliminada", Toast.LENGTH_SHORT).show()
+                                                    val msg = if (exitoRemoto) "Rúbrica eliminada del Servidor y Room" else "Rúbrica eliminada localmente ($errorMsg)"
+                                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                                     onActualizarPlantillas()
                                                 }
                                             }
@@ -1158,27 +1202,48 @@ private fun GestorPlantillasRubrica(
             onDismiss = { mostrarModalCrear = false },
             onGuardar = { titulo, descripcion, criterios ->
                 coroutineScope.launch(Dispatchers.IO) {
-                    val empaquetados = criterios.joinToString("|") { c ->
-                        "${c.nombre}::${c.descLogrado}::${c.descMedLogrado}::${c.descPorLograr}::${c.descNoLogrado}"
+                    val cList = criterios.toMutableList()
+                    while (cList.size < 4) {
+                        val num = cList.size + 1
+                        cList.add(CriterioRubrica("Criterio $num"))
                     }
-                    val nuevaEntidad = Rubrica(
-                        titulo = titulo,
-                        tipo = "PLANTILLA",
-                        nota = 4.0,
-                        feedback = empaquetados,
-                        tituloRubrica = descripcion
+
+                    val tempUI = PlantillaRubricaUI(
+                        id = 0,
+                        titulo = titulo.trim(),
+                        descripcion = descripcion.trim().ifBlank { "${cList.size} criterios • Escala por niveles de logro" },
+                        criterios = cList
                     )
-                    val guardada = try {
-                        val resp = RetrofitClient.apiService.guardarPlantillaRubrica(nuevaEntidad)
-                        if (resp.isSuccessful && resp.body() != null) resp.body()!! else nuevaEntidad
-                    } catch (_: Exception) {
-                        nuevaEntidad
-                    }
-                    db.rubricaDao().guardarRubrica(guardada)
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Rúbrica creada correctamente", Toast.LENGTH_SHORT).show()
-                        mostrarModalCrear = false
-                        onActualizarPlantillas()
+                    val dto = tempUI.aDto()
+
+                    try {
+                        val resp = RetrofitClient.apiService.guardarPlantillaRubrica(dto)
+                        if (resp.isSuccessful && resp.body() != null) {
+                            val creadaDto = resp.body()!!
+                            val uiCreada = creadaDto.aPlantillaUI()
+                            db.rubricaDao().guardarRubrica(uiCreada.aEntidadRubrica())
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Plantilla creada en el Servidor (Render / Neon PostgreSQL)", Toast.LENGTH_LONG).show()
+                                mostrarModalCrear = false
+                                onActualizarPlantillas()
+                            }
+                        } else {
+                            val errEntidad = tempUI.aEntidadRubrica()
+                            db.rubricaDao().guardarRubrica(errEntidad)
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Servidor devolvió error (${resp.code()}). Guardada en respaldo local Room.", Toast.LENGTH_LONG).show()
+                                mostrarModalCrear = false
+                                onActualizarPlantillas()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        val errEntidad = tempUI.aEntidadRubrica()
+                        db.rubricaDao().guardarRubrica(errEntidad)
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Modo Offline: Guardada en respaldo local Room", Toast.LENGTH_LONG).show()
+                            mostrarModalCrear = false
+                            onActualizarPlantillas()
+                        }
                     }
                 }
             }
@@ -1192,26 +1257,46 @@ private fun GestorPlantillasRubrica(
             onDismiss = { plantillaAEditar = null },
             onGuardar = { titulo, descripcion, criterios ->
                 coroutineScope.launch(Dispatchers.IO) {
-                    val empaquetados = criterios.joinToString("|") { c ->
-                        "${c.nombre}::${c.descLogrado}::${c.descMedLogrado}::${c.descPorLograr}::${c.descNoLogrado}"
+                    val cList = criterios.toMutableList()
+                    while (cList.size < 4) {
+                        val num = cList.size + 1
+                        cList.add(CriterioRubrica("Criterio $num"))
                     }
-                    val entidadActualizada = Rubrica(
+
+                    val tempUI = PlantillaRubricaUI(
                         id = plantilla.id,
-                        titulo = titulo,
-                        tipo = "PLANTILLA",
-                        nota = 4.0,
-                        feedback = empaquetados,
-                        tituloRubrica = descripcion
+                        titulo = titulo.trim(),
+                        descripcion = descripcion.trim(),
+                        criterios = cList
                     )
+                    val dto = tempUI.aDto()
+
                     try {
-                        RetrofitClient.apiService.editarPlantillaRubrica(plantilla.id, entidadActualizada)
-                    } catch (_: Exception) {
-                    }
-                    db.rubricaDao().actualizarRubrica(entidadActualizada)
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Rúbrica actualizada", Toast.LENGTH_SHORT).show()
-                        plantillaAEditar = null
-                        onActualizarPlantillas()
+                        val resp = RetrofitClient.apiService.editarPlantillaRubrica(plantilla.id.toLong(), dto)
+                        if (resp.isSuccessful && resp.body() != null) {
+                            val editadaDto = resp.body()!!
+                            val uiEditada = editadaDto.aPlantillaUI()
+                            db.rubricaDao().actualizarRubrica(uiEditada.aEntidadRubrica())
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Plantilla actualizada en el Servidor (Render / Neon)", Toast.LENGTH_LONG).show()
+                                plantillaAEditar = null
+                                onActualizarPlantillas()
+                            }
+                        } else {
+                            db.rubricaDao().actualizarRubrica(tempUI.aEntidadRubrica())
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Servidor devolvió error (${resp.code()}). Actualizada localmente en Room.", Toast.LENGTH_LONG).show()
+                                plantillaAEditar = null
+                                onActualizarPlantillas()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        db.rubricaDao().actualizarRubrica(tempUI.aEntidadRubrica())
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Modo Offline: Actualizada localmente en Room", Toast.LENGTH_LONG).show()
+                            plantillaAEditar = null
+                            onActualizarPlantillas()
+                        }
                     }
                 }
             }
@@ -1484,11 +1569,25 @@ private fun TarjetaHistorialDocente(rubrica: Rubrica) {
 
             AnimatedVisibility(visible = expandida) {
                 Column(modifier = Modifier.padding(top = 10.dp)) {
-                    HorizontalDivider(modifier = Modifier.padding(bottom = 8.dp))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     Text(
-                        text = rubrica.feedbackDocente.ifBlank { rubrica.feedback },
+                        text = "RUT Alumno: ${rubrica.rutAlumno.ifBlank { "Sin RUT" }}",
                         fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = Color.DarkGray
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Feedback del Instructor:",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1B5E20)
+                    )
+                    Text(
+                        text = rubrica.feedbackDocente.ifBlank { rubrica.feedback.ifBlank { "Sin retroalimentación" } },
+                        fontSize = 13.sp,
+                        color = Color.Black,
+                        modifier = Modifier.padding(top = 2.dp)
                     )
                 }
             }
@@ -1499,5 +1598,7 @@ private fun TarjetaHistorialDocente(rubrica: Rubrica) {
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun PreviewVistaRubricas() {
-    VistaRubricas()
+    AppEsfocarTheme {
+        VistaRubricas()
+    }
 }
